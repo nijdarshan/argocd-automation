@@ -90,7 +90,9 @@
             "approval_message": { "type": "string" },
             "health_check":     { "type": "object" },
             "auto_rollback":    { "type": "boolean" },
-            "sync_timeout":     { "type": "string" }
+            "sync_timeout":     { "type": "string" },
+            "sync_policy":      { "type": "string", "enum": ["manual", "auto", "auto_self_heal"], "description": "ArgoCD sync policy for this component" },
+            "strategy":         { "type": "string", "enum": ["rolling", "canary", "blueGreen"], "description": "Deployment strategy. rolling=current, canary/blueGreen=future (Argo Rollouts)" }
           }
         },
         "depends_on": { "type": "array", "items": { "type": "string" } },
@@ -110,7 +112,12 @@
         "chart_version": { "type": "string" },
         "deploy_order":  { "type": "integer" },
         "sync_wave":     { "type": "string" },
-        "type":          { "type": "string", "enum": ["umbrella", "standalone", "multi_instance"] },
+        "type":          { "type": "string", "enum": ["helm", "multi_instance"], "description": "helm=standard single chart, multi_instance=same chart deployed N times" },
+        "chart_pattern": { "type": "string", "enum": ["umbrella", "standalone", "multi_instance"], "description": "Packaging pattern from vendor: umbrella (sub-charts), standalone, multi_instance" },
+        "namespace":     { "type": "string", "description": "Target K8s namespace for this chart" },
+        "values_path":   { "type": "string", "description": "Path in GitOps repo: environments/{env}/values/{values_path}/values.yaml" },
+        "display_name":  { "type": "string" },
+        "depends_on":    { "type": "array", "items": { "type": "string" }, "description": "Intra-component chart ordering" },
         "values":        { "type": "object", "description": "Merged and resolved Helm values (JSON mirroring values.yaml)" },
         "instances": {
           "type": "object",

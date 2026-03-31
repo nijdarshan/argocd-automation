@@ -455,7 +455,7 @@ SQLite for the PoC — 3 tables:
 | `component_results` | One record per component per deployment (status, version, SHA, health report) |
 | `diffs` | Git diff snapshot per component per deployment |
 
-For production: swap to MariaDB by changing the connection string. The raw SQL is standard enough to work on both.
+For production: swap to `Hub DB` by changing the connection string. The raw SQL is standard enough to work on both.
 
 ---
 
