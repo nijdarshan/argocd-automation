@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nf-server-app
+data:
+  server.py: |
+{{ .Files.Get "files/server.py" | indent 4 }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: nf-server
+  labels: { app: nf-server, version: {{ .Values.version | quote }}, chart-version: {{ .Chart.Version | quote }} }
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: { app: nf-server }
+  template:
+    metadata:
+      labels: { app: nf-server, version: {{ .Values.version | quote }}, chart-version: {{ .Chart.Version | quote }} }
+    spec:
+      containers:
+        - name: server
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          command: ["python3", "/app/server.py"]
+          ports: [{ containerPort: {{ .Values.service.port }} }]
+          env:
+            - { name: APP_VERSION, value: {{ .Values.version | quote }} }
+            - { name: CHART_VERSION, value: {{ .Chart.Version | quote }} }
+            - { name: IMAGE_TAG, value: "{{ .Values.image.repository }}:{{ .Values.image.tag }}" }
+            - { name: DEPLOY_STRATEGY, value: {{ .Values.strategy | quote }} }
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - { name: REPLICAS, value: {{ .Values.replicaCount | quote }} }
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          readinessProbe: { httpGet: { path: /health, port: {{ .Values.service.port }} }, initialDelaySeconds: 3, periodSeconds: 5 }
+          livenessProbe: { httpGet: { path: /health, port: {{ .Values.service.port }} }, initialDelaySeconds: 10, periodSeconds: 15 }
+          volumeMounts:
+            - { name: app, mountPath: /app }
+      volumes:
+        - name: app
+          configMap: { name: nf-server-app }
+  strategy:
+  {{- if eq .Values.strategy "canary" }}
+    canary:
+      steps:
+      {{- range .Values.canary.steps }}
+        - setWeight: {{ .weight }}
+        {{- if eq (int .pause) -1 }}
+        - pause: {}
+        {{- else if gt (int .pause) 0 }}
+        - pause: { duration: {{ .pause }}s }
+        {{- end }}
+      {{- end }}
+  {{- else if eq .Values.strategy "blueGreen" }}
+    blueGreen:
+      activeService: nf-server
+      previewService: nf-server-preview
+      autoPromotionEnabled: false
+  {{- else }}
+    canary:
+      steps:
+        - setWeight: 100
+  {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata: { name: nf-server }
+spec:
+  ports: [{ port: {{ .Values.service.port }}, targetPort: {{ .Values.service.port }} }]
+  selector: { app: nf-server }
+{{- if eq .Values.strategy "blueGreen" }}
+---
+apiVersion: v1
+kind: Service
+metadata: { name: nf-server-preview }
+spec:
+  ports: [{ port: {{ .Values.service.port }}, targetPort: {{ .Values.service.port }} }]
+  selector: { app: nf-server }
+{{- end }}

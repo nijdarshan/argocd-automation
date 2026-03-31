@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-{{ .Values.instanceName }}
+  labels: { app: redis, instance: {{ .Values.instanceName }} }
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: { app: redis, instance: {{ .Values.instanceName }} }
+  template:
+    metadata:
+      labels: { app: redis, instance: {{ .Values.instanceName }} }
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          args: ["--maxmemory", {{ .Values.maxMemory | quote }}, "--maxmemory-policy", "allkeys-lru"]
+          ports: [{ containerPort: 6379 }]
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+          readinessProbe: { exec: { command: ["redis-cli", "ping"] }, initialDelaySeconds: 3 }
+          livenessProbe: { exec: { command: ["redis-cli", "ping"] }, initialDelaySeconds: 10 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: redis-{{ .Values.instanceName }} }
+spec:
+  ports: [{ port: 6379 }]
+  selector: { app: redis, instance: {{ .Values.instanceName }} }

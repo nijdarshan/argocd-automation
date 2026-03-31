@@ -1,0 +1,9 @@
+replicaCount: 1
+image:
+  repository: grafana/grafana
+  tag: "11.0.0"
+admin:
+  user: admin
+  password: admin123
+prometheus:
+  url: "http://prometheus:9090"

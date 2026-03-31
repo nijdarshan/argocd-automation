@@ -1,0 +1,11 @@
+replicaCount: 1
+version: "1.0.0"
+image:
+  repository: nginx
+  tag: "alpine"
+config:
+  networkFunction: "demo-5g"
+  environment: "dev"
+  features:
+    monitoring: true
+    alerting: false

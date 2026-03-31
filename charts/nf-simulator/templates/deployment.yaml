@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nf-simulator
+  labels: { app: nf-simulator }
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: { app: nf-simulator }
+  template:
+    metadata:
+      labels: { app: nf-simulator }
+    spec:
+      containers:
+        - name: sim
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              while true; do
+                for i in $(seq 1 {{ .Values.burstSize }}); do
+                  curl -s http://{{ .Values.targetServer }}/ > /dev/null &
+                  curl -s http://{{ .Values.targetServer }}/health > /dev/null &
+                  curl -s http://{{ .Values.targetServer }}/metrics > /dev/null &
+                done
+                wait
+                sleep {{ .Values.quietPeriod }}
+              done
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { cpu: 200m, memory: 128Mi }

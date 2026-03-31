@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>NF Demo Stack</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'SF Pro Display',-apple-system,sans-serif;background:#000;color:#fff;min-height:100vh;overflow-x:hidden}
+canvas{position:fixed;top:0;left:0;z-index:0}
+.container{position:relative;z-index:1;padding:40px;max-width:1200px;margin:0 auto}
+h1{font-size:2.4rem;font-weight:800;letter-spacing:-1px;margin-bottom:6px}
+.subtitle{color:rgba(255,255,255,0.5);font-size:0.85rem;margin-bottom:32px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.card{border-radius:16px;padding:24px;position:relative;overflow:hidden;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.08);transition:all 0.4s ease}
+.card:hover{transform:translateY(-2px);border-color:rgba(255,255,255,0.2)}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.card h3{font-size:0.85rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.6)}
+.dot{width:10px;height:10px;border-radius:50%;animation:glow 2s ease-in-out infinite}
+@keyframes glow{0%,100%{box-shadow:0 0 4px currentColor}50%{box-shadow:0 0 12px currentColor}}
+.version{font-size:2.6rem;font-weight:800;letter-spacing:-2px;line-height:1.1;margin-bottom:12px;font-family:'SF Mono','Fira Code',monospace}
+.meta{font-size:0.8rem;color:rgba(255,255,255,0.4);line-height:1.8}
+.meta strong{color:rgba(255,255,255,0.7)}
+.meta a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.bar{height:3px;border-radius:2px;margin-top:16px;opacity:0.6}
+.wide{grid-column:1/-1}
+/* Canary / Rollout display */
+.rollout-section{margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.1)}
+.rollout-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;font-weight:700}
+.traffic-bar{display:flex;height:32px;border-radius:16px;overflow:hidden;background:rgba(255,255,255,0.05);margin-bottom:12px}
+.traffic-seg{display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;transition:width 0.8s ease;padding:0 8px;white-space:nowrap}
+.pod-grid{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.pod-chip{display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:0.7rem;font-family:'SF Mono',monospace;border:1px solid rgba(255,255,255,0.1)}
+.pod-chip .dot2{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.rollout-info{font-size:0.75rem;color:rgba(255,255,255,0.5)}
+.rollout-info strong{color:rgba(255,255,255,0.8)}
+.timestamp{position:fixed;bottom:16px;right:24px;font-size:0.7rem;color:rgba(255,255,255,0.2);z-index:2}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="container">
+<h1>NF Demo Stack</h1>
+<p class="subtitle">Live deployment status <span id="ts"></span></p>
+<div class="grid">
+
+  <div class="card wide" id="card-server">
+    <div class="card-top"><h3>NF Server</h3><div class="dot" id="dot-server"></div></div>
+    <div class="version" id="v-server">...</div>
+    <div class="meta">chart: <strong id="server-chart">?</strong> &middot; image: <strong id="server-img">?</strong> &middot; <strong id="server-rep">?</strong> replicas &middot; <strong id="server-req">-</strong> req</div>
+    <div class="bar" id="bar-server"></div>
+    <div class="rollout-section" id="rollout-section">
+      <div class="rollout-label" id="rollout-label">Pod Status</div>
+      <div class="traffic-bar" id="traffic-bar" style="display:none"></div>
+      <div class="pod-grid" id="pod-grid"></div>
+      <div class="rollout-info" id="rollout-info"></div>
+    </div>
+  </div>
+
+  <div class="card" id="card-config"><div class="card-top"><h3>NF Config</h3><div class="dot" id="dot-config"></div></div><div class="version" id="v-config">...</div><div class="meta">env: <strong id="config-env">-</strong> &middot; monitoring: <strong id="config-mon">-</strong></div><div class="bar" id="bar-config"></div></div>
+  <div class="card" id="card-grafana"><div class="card-top"><h3>Grafana</h3><div class="dot" id="dot-grafana"></div></div><div class="version" id="v-grafana">...</div><div class="meta"><a href="http://localhost:3001" target="_blank">Open Dashboard</a> &middot; admin / admin123</div><div class="bar" id="bar-grafana"></div></div>
+  <div class="card" id="card-prom"><div class="card-top"><h3>Prometheus</h3><div class="dot" id="dot-prom"></div></div><div class="version" id="v-prom">...</div><div class="meta"><a href="http://localhost:9090" target="_blank">Open UI</a></div><div class="bar" id="bar-prom"></div></div>
+  <div class="card" id="card-redis"><div class="card-top"><h3>Redis Store</h3><div class="dot" style="color:#a78bfa;background:#a78bfa"></div></div><div class="version" style="color:#a78bfa">3x</div><div class="meta">cache &middot; sessions &middot; events</div><div class="bar" style="background:#a78bfa"></div></div>
+  <div class="card" id="card-sim"><div class="card-top"><h3>Traffic Simulator</h3><div class="dot" id="dot-sim" style="color:#f59e0b;background:#f59e0b"></div></div><div class="version" id="v-sim" style="color:#f59e0b;font-size:1.4rem">...</div><div class="meta"><strong id="sim-burst">?</strong> burst x 3 endpoints &middot; <strong id="sim-quiet">?</strong>s quiet</div><div class="bar" id="bar-sim" style="background:#f59e0b"></div></div>
+
+  <div class="card" style="border-color:rgba(88,166,255,0.2);background:rgba(88,166,255,0.04)"><div class="card-top"><h3>Quick Links</h3><div class="dot" style="color:#58a6ff;background:#58a6ff"></div></div><div class="version" style="color:#58a6ff;font-size:1.4rem">Hub</div><div class="meta"><a href="http://localhost:9000/docs" target="_blank">API Docs (OpenAPI)</a><br><a href="https://localhost:30443" target="_blank">ArgoCD Dashboard</a><br><a href="http://localhost:3000" target="_blank">Gitea (GitOps Repo)</a><br><a href="http://localhost:8081" target="_blank">Nexus (Helm Charts)</a></div><div class="bar" style="background:#58a6ff"></div></div>
+
+</div>
+</div>
+<script>
+function vc(v){if(!v)return{h:0,s:0,l:30};let h=0;for(let i=0;i<v.length;i++)h=v.charCodeAt(i)+((h<<5)-h);h=((h%360)+360)%360;return{h,s:75,l:65}}
+function hsl(c){return'hsl('+c.h+','+c.s+'%,'+c.l+'%)'}
+function ac(id,v){const c=vc(v),color=hsl(c),card=document.getElementById('card-'+id),dot=document.getElementById('dot-'+id),bar=document.getElementById('bar-'+id),ver=document.getElementById('v-'+id);if(card)card.style.background=color.replace(')',',0.06)').replace('hsl','hsla');if(card)card.style.borderColor=color.replace(')',',0.3)').replace('hsl','hsla');if(dot){dot.style.color=color;dot.style.background=color}if(bar)bar.style.background=color;if(ver)ver.style.color=color}
+
+async function refresh(){
+  document.getElementById('ts').textContent=new Date().toLocaleTimeString();
+  try{
+    const promises=[];for(let i=0;i<15;i++)promises.push(fetch('/proxy/server').then(r=>r.json()).catch(()=>null));
+    const responses=(await Promise.all(promises)).filter(r=>r);
+    if(!responses.length)throw new Error('no data');
+    const s=responses[0];
+
+    const vmap={};
+    responses.forEach(r=>{const v=r.version;if(!vmap[v])vmap[v]={count:0,pods:new Set(),chart:r.chart_version,img:r.image,strat:r.strategy};vmap[v].count++;vmap[v].pods.add(r.pod)});
+    const versions=Object.keys(vmap);
+    const isCanary=versions.length>1;
+
+    // Version
+    if(isCanary){
+      document.getElementById('v-server').innerHTML=versions.map(v=>{const c=vc(v);return'<span style="color:'+hsl(c)+'">v'+v+'</span>'}).join(' <span style="color:rgba(255,255,255,0.3);font-size:0.5em">/</span> ');
+    }else{
+      document.getElementById('v-server').textContent='v'+s.version;
+    }
+
+    document.getElementById('server-req').textContent=s.requests;
+    document.getElementById('server-rep').textContent=s.replicas||'?';
+    document.getElementById('server-chart').textContent=s.chart_version||'?';
+    document.getElementById('server-img').textContent=s.image||'?';
+
+    // Rollout label
+    const label=document.getElementById('rollout-label');
+    if(isCanary){label.textContent='CANARY ROLLOUT — Live Traffic Split';label.style.color='#f59e0b'}
+    else{label.textContent='Pods';label.style.color='rgba(255,255,255,0.4)'}
+
+    // Traffic bar
+    const tb=document.getElementById('traffic-bar');
+    if(isCanary){
+      tb.style.display='flex';tb.innerHTML='';
+      const total=responses.length;
+      versions.forEach(v=>{
+        const pct=Math.round(vmap[v].count/total*100);
+        const color=hsl(vc(v));
+        const seg=document.createElement('div');seg.className='traffic-seg';
+        seg.style.width=pct+'%';
+        seg.style.background=color.replace(')',',0.25)').replace('hsl','hsla');
+        seg.style.color=color;
+        seg.style.borderRight='2px solid rgba(0,0,0,0.3)';
+        seg.textContent='v'+v+'  '+pct+'%';
+        tb.appendChild(seg);
+      });
+    }else{tb.style.display='none'}
+
+    // Pod chips
+    const pg=document.getElementById('pod-grid');pg.innerHTML='';
+    const allPods={};
+    responses.forEach(r=>{allPods[r.pod]={version:r.version}});
+    Object.entries(allPods).forEach(([name,info])=>{
+      const color=hsl(vc(info.version));
+      const chip=document.createElement('div');chip.className='pod-chip';
+      chip.style.borderColor=color.replace(')',',0.3)').replace('hsl','hsla');
+      chip.style.background=color.replace(')',',0.08)').replace('hsl','hsla');
+      const shortName=name.split('-').slice(-1)[0];
+      chip.innerHTML='<div class="dot2" style="background:'+color+'"></div><span style="color:rgba(255,255,255,0.5)">'+shortName+'</span><span style="color:'+color+';font-weight:700">v'+info.version+'</span>';
+      pg.appendChild(chip);
+    });
+
+    // Rollout info
+    const ri=document.getElementById('rollout-info');
+    if(isCanary){
+      const stable=versions.reduce((a,b)=>vmap[a].count>=vmap[b].count?a:b);
+      const canary=versions.find(v=>v!==stable);
+      ri.innerHTML='Stable: <strong style="color:'+hsl(vc(stable))+'">v'+stable+'</strong> ('+vmap[stable].pods.size+' pods) &middot; Canary: <strong style="color:'+hsl(vc(canary))+'">v'+canary+'</strong> ('+vmap[canary].pods.size+' pods) &middot; Strategy: <strong>'+s.strategy+'</strong>';
+    }else{
+      ri.innerHTML='Strategy: <strong>'+(s.strategy||'rolling')+'</strong> &middot; '+Object.keys(allPods).length+' pods &middot; all <strong>v'+s.version+'</strong>';
+    }
+
+    ac('server',isCanary?'canary-active':s.version);
+  }catch(e){document.getElementById('v-server').textContent='DOWN';ac('server',null)}
+
+  try{const c=await(await fetch('/proxy/config')).json();const cv=c.version||'1.0.0';document.getElementById('v-config').textContent='v'+cv;document.getElementById('config-env').textContent=c.environment||'-';document.getElementById('config-mon').textContent=(c.features&&c.features.monitoring)?'on':'off';ac('config',cv)}catch(e){document.getElementById('v-config').textContent='DOWN';ac('config',null)}
+  try{const g=await(await fetch('/proxy/grafana')).json();document.getElementById('v-grafana').textContent='v'+g.version;ac('grafana',g.version)}catch(e){document.getElementById('v-grafana').textContent='DOWN';ac('grafana',null)}
+  try{const r=await fetch('/proxy/prometheus');document.getElementById('v-prom').textContent=r.ok?'v2.51':'down';ac('prom',r.ok?'2.51':null)}catch(e){document.getElementById('v-prom').textContent='DOWN';ac('prom',null)}
+  try{const sim=await(await fetch('/proxy/simulator')).json();document.getElementById('v-sim').textContent=sim.reqPerCycle+' req/cycle';document.getElementById('sim-burst').textContent=sim.burstSize;document.getElementById('sim-quiet').textContent=sim.quietPeriod;ac('sim',String(sim.burstSize))}catch(e){document.getElementById('v-sim').textContent='?'}
+}
+
+const canvas=document.getElementById('bg'),ctx=canvas.getContext('2d');let W,H,pts=[];function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}resize();addEventListener('resize',resize);for(let i=0;i<50;i++)pts.push({x:Math.random()*2000,y:Math.random()*1200,r:Math.random()*2+0.5,dx:(Math.random()-0.5)*0.3,dy:(Math.random()-0.5)*0.3,o:Math.random()*0.3+0.05});function draw(){ctx.clearRect(0,0,W,H);pts.forEach(p=>{p.x+=p.dx;p.y+=p.dy;if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(100,150,255,'+p.o+')';ctx.fill()});for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){const d=Math.hypot(pts[i].x-pts[j].x,pts[i].y-pts[j].y);if(d<120){ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);ctx.strokeStyle='rgba(100,150,255,'+(0.04*(1-d/120))+')';ctx.stroke()}}requestAnimationFrame(draw)}draw();
+refresh();setInterval(refresh,3000);
+</script>
+</body>
+</html>

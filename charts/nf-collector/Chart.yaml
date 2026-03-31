@@ -1,0 +1,5 @@
+apiVersion: v2
+name: nf-collector
+version: 1.0.0
+appVersion: "2.51.0"
+description: Prometheus metrics collector

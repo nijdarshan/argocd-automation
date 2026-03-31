@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nf-config
+  labels: { app: nf-config, version: {{ .Values.version | quote }} }
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: { app: nf-config }
+  template:
+    metadata:
+      labels: { app: nf-config, version: {{ .Values.version | quote }} }
+      annotations:
+        checksum/config: {{ .Values.config | toJson | sha256sum }}
+    spec:
+      containers:
+        - name: nginx
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          ports: [{ containerPort: 80 }]
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+          readinessProbe: { httpGet: { path: /health, port: 80 }, initialDelaySeconds: 3 }
+          livenessProbe: { httpGet: { path: /health, port: 80 }, initialDelaySeconds: 10 }
+          volumeMounts:
+            - { name: data, mountPath: /usr/share/nginx/html }
+            - { name: conf, mountPath: /etc/nginx/conf.d }
+      volumes:
+        - name: data
+          configMap: { name: nf-config-data }
+        - name: conf
+          configMap: { name: nf-config-nginx }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: nf-config }
+spec:
+  ports: [{ port: 80 }]
+  selector: { app: nf-config }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: nf-config-data }
+data:
+  config.json: {{ .Values.config | toJson | quote }}
+  health: {{ printf "{\"status\":\"healthy\",\"version\":\"%s\"}" .Values.version | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: nf-config-nginx }
+data:
+  default.conf: |
+    server {
+      listen 80;
+      location /health { default_type application/json; alias /usr/share/nginx/html/health; }
+      location /config { default_type application/json; alias /usr/share/nginx/html/config.json; }
+      location / { default_type application/json; alias /usr/share/nginx/html/config.json; }
+    }

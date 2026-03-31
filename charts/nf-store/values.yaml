@@ -1,0 +1,6 @@
+instanceName: default
+replicaCount: 1
+maxMemory: "64mb"
+image:
+  repository: redis
+  tag: "7.2-alpine"

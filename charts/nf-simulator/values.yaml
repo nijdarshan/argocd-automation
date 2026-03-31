@@ -1,0 +1,7 @@
+replicaCount: 1
+burstSize: 20
+quietPeriod: 10
+targetServer: "nf-server:8000"
+image:
+  repository: curlimages/curl
+  tag: "latest"

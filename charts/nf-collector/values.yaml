@@ -1,0 +1,9 @@
+replicaCount: 1
+retention: "12h"
+image:
+  repository: prom/prometheus
+  tag: "v2.51.0"
+scrapeTargets:
+  - jobName: nf-server
+    target: "nf-server:8000"
+    interval: 10s

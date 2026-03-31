@@ -1,0 +1,174 @@
+{
+  "deployment_id": "deploy-2026-03-30-001",
+  "helix_id": "HELIX-1001",
+  "action": "deploy",
+  "environment": "dev",
+  "nf": "nf-demo",
+  "is_bootstrap": true,
+
+  "defaults": {
+    "gitops_repo": "http://gitea-http.gitea.svc:3000/gitea_admin/nf-demo-gitops.git",
+    "gitops_branch": "main",
+    "namespace": "nf-demo",
+    "argocd_project": "default"
+  },
+
+  "deployment_order": [
+    { "component": "platform", "batch": 1 },
+    { "component": "simulator", "batch": 2 },
+    { "component": "collector", "batch": 3 },
+    { "component": "store", "batch": 3 },
+    { "component": "dashboard", "batch": 4 },
+    { "component": "gateway", "batch": 5 }
+  ],
+
+  "components": {
+    "platform": {
+      "display_name": "NF Platform",
+      "namespace": "nf-demo",
+      "deployment_config": {
+        "manual_approval": true,
+        "approval_message": "Platform deployed. Verify config server and NF server are healthy before proceeding.",
+        "health_check": { "type": "pod_readiness", "timeout": "120s" },
+        "auto_rollback": false,
+        "sync_timeout": "180s"
+      },
+      "depends_on": [],
+      "charts": {
+        "nf-config": {
+          "display_name": "Config Server",
+          "deploy_order": 1,
+          "sync_wave": "-5",
+          "type": "directory",
+          "path": "platform/config",
+          "version": "1.0.0"
+        },
+        "nf-server": {
+          "display_name": "NF Server",
+          "deploy_order": 2,
+          "sync_wave": "-4",
+          "type": "directory",
+          "path": "platform/server",
+          "version": "1.0.0",
+          "depends_on": ["nf-config"]
+        }
+      }
+    },
+
+    "simulator": {
+      "display_name": "Traffic Simulator",
+      "namespace": "nf-demo",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": { "type": "pod_readiness", "timeout": "60s" },
+        "auto_rollback": true,
+        "sync_timeout": "120s"
+      },
+      "depends_on": ["platform"],
+      "charts": {
+        "nf-simulator": {
+          "display_name": "Traffic Simulator",
+          "deploy_order": 3,
+          "sync_wave": "-3",
+          "type": "directory",
+          "path": "simulator",
+          "version": "1.0.0"
+        }
+      }
+    },
+
+    "collector": {
+      "display_name": "Metrics Collector",
+      "namespace": "nf-demo",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": { "type": "pod_readiness", "timeout": "120s" },
+        "auto_rollback": true,
+        "sync_timeout": "180s"
+      },
+      "depends_on": ["platform"],
+      "charts": {
+        "prometheus": {
+          "display_name": "Prometheus",
+          "deploy_order": 4,
+          "sync_wave": "-2",
+          "type": "directory",
+          "path": "collector",
+          "version": "2.51.0"
+        }
+      }
+    },
+
+    "store": {
+      "display_name": "Data Store",
+      "namespace": "nf-demo",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": { "type": "pod_readiness", "timeout": "60s" },
+        "auto_rollback": true,
+        "sync_timeout": "120s"
+      },
+      "depends_on": ["platform"],
+      "charts": {
+        "redis": {
+          "display_name": "Redis",
+          "deploy_order": 5,
+          "sync_wave": "-2",
+          "type": "multi_instance",
+          "path": "store",
+          "version": "7.2",
+          "instances": {
+            "cache": { "path": "store/cache" },
+            "sessions": { "path": "store/sessions" },
+            "events": { "path": "store/events" }
+          }
+        }
+      }
+    },
+
+    "dashboard": {
+      "display_name": "Dashboard",
+      "namespace": "nf-demo",
+      "deployment_config": {
+        "manual_approval": true,
+        "approval_message": "Metrics pipeline is live. Verify Grafana shows data before exposing via gateway.",
+        "health_check": { "type": "pod_readiness", "timeout": "120s" },
+        "auto_rollback": false,
+        "sync_timeout": "180s"
+      },
+      "depends_on": ["collector"],
+      "charts": {
+        "grafana": {
+          "display_name": "Grafana",
+          "deploy_order": 6,
+          "sync_wave": "-1",
+          "type": "directory",
+          "path": "dashboard",
+          "version": "11.0.0"
+        }
+      }
+    },
+
+    "gateway": {
+      "display_name": "API Gateway",
+      "namespace": "nf-demo",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": { "type": "pod_readiness", "timeout": "60s" },
+        "auto_rollback": true,
+        "sync_timeout": "120s"
+      },
+      "depends_on": ["dashboard"],
+      "charts": {
+        "nf-gateway": {
+          "display_name": "Gateway + Ingress",
+          "deploy_order": 7,
+          "sync_wave": "0",
+          "type": "directory",
+          "path": "gateway",
+          "version": "1.0.0"
+        }
+      }
+    }
+  }
+}

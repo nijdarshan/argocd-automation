@@ -1,0 +1,13 @@
+replicaCount: 1
+version: "1.0.0"
+image:
+  repository: nginx
+  tag: "alpine"
+upstreams:
+  server: "nf-server.nf-platform.svc.cluster.local:8000"
+  config: "nf-config.nf-platform.svc.cluster.local:80"
+  grafana: "grafana.nf-dashboard.svc.cluster.local:3000"
+  prometheus: "prometheus.nf-collector.svc.cluster.local:9090"
+simulator:
+  burstSize: 20
+  quietPeriod: 10

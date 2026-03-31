@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: nf-gateway-config }
+data:
+  default.conf: |
+    server {
+      listen 80;
+      resolver kube-dns.kube-system.svc.cluster.local valid=5s;
+      root /usr/share/nginx/html;
+      index index.html;
+
+      set $up_server "{{ .Values.upstreams.server }}";
+      set $up_config "{{ .Values.upstreams.config }}";
+      set $up_grafana "{{ .Values.upstreams.grafana }}";
+      set $up_prom "{{ .Values.upstreams.prometheus }}";
+
+      location /health { return 200 '{"status":"healthy","version":"{{ .Values.version }}"}'; add_header Content-Type application/json; }
+      location /api/status { return 200 '{"gateway":"{{ .Values.version }}","upstreams":{{ .Values.upstreams | toJson }}}'; add_header Content-Type application/json; }
+      location /api/server/ { proxy_pass http://$up_server/; }
+      location /api/config/ { proxy_pass http://$up_config/; }
+      location /proxy/server { proxy_pass http://$up_server/health; }
+      location /proxy/config { proxy_pass http://$up_config/config; }
+      location /proxy/grafana { proxy_pass http://$up_grafana/api/health; }
+      location /proxy/prometheus { proxy_pass http://$up_prom/-/ready; }
+      location /proxy/simulator { return 200 '{"burstSize":{{ .Values.simulator.burstSize }},"quietPeriod":{{ .Values.simulator.quietPeriod }},"reqPerCycle":{{ mul .Values.simulator.burstSize 3 }}}'; add_header Content-Type application/json; }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: nf-gateway-html }
+data:
+  index.html: |
+{{ .Files.Get "files/index.html" | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nf-gateway
+  labels: { app: nf-gateway, version: {{ .Values.version | quote }} }
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: { app: nf-gateway }
+  template:
+    metadata:
+      labels: { app: nf-gateway, version: {{ .Values.version | quote }} }
+      annotations:
+        checksum/config: {{ printf "%s%s%s" (.Values.upstreams | toJson) (.Values.version) (.Values.simulator | toJson) | sha256sum }}
+    spec:
+      containers:
+        - name: nginx
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          ports: [{ containerPort: 80 }]
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+          readinessProbe: { httpGet: { path: /health, port: 80 }, initialDelaySeconds: 3 }
+          livenessProbe: { httpGet: { path: /health, port: 80 }, initialDelaySeconds: 10 }
+          volumeMounts:
+            - { name: config, mountPath: /etc/nginx/conf.d }
+            - { name: html, mountPath: /usr/share/nginx/html }
+      volumes:
+        - name: config
+          configMap: { name: nf-gateway-config }
+        - name: html
+          configMap: { name: nf-gateway-html }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: nf-gateway }
+spec:
+  ports: [{ port: 80 }]
+  selector: { app: nf-gateway }

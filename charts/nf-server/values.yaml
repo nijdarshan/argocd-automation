@@ -1,0 +1,23 @@
+replicaCount: 2
+version: "1.0.0"
+strategy: "rolling"
+image:
+  repository: python
+  tag: "3.12-alpine"
+service:
+  port: 8000
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+canary:
+  steps:
+    - weight: 20
+      pause: -1
+    - weight: 50
+      pause: -1
+    - weight: 100
+      pause: 0

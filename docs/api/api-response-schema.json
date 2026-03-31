@@ -1,0 +1,207 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Deployment API Response",
+  "description": "Shape returned by GET /api/v1/deployments/{deployment_id}. Contains the resolved app-config payload (no placeholders) and runtime deployment state.",
+  "type": "object",
+  "required": ["deployment_id", "helix_id", "action", "environment", "nf", "status", "created_at", "payload", "runtime"],
+  "additionalProperties": false,
+  "properties": {
+    "deployment_id": { "type": "string", "description": "Unique deployment identifier" },
+    "helix_id":      { "type": "string", "description": "Helix ticket that triggered this deployment" },
+    "action":        { "type": "string", "enum": ["deploy", "rollback"], "description": "Deployment action type" },
+    "environment":   { "type": "string", "description": "Target environment (e.g. prod, pre-prod, rnd)" },
+    "nf":            { "type": "string", "description": "Network function identifier (e.g. ims)" },
+    "status":        { "$ref": "#/$defs/deployment_status" },
+    "is_bootstrap":  { "type": "boolean", "default": false, "description": "True if this is the first deployment (app-of-apps creation)" },
+    "created_at":    { "type": "string", "format": "date-time" },
+    "completed_at":  { "type": ["string", "null"], "format": "date-time" },
+    "payload":       { "$ref": "#/$defs/resolved_payload" },
+    "runtime":       { "$ref": "#/$defs/runtime" }
+  },
+
+  "$defs": {
+
+    "deployment_status": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "success", "failed", "rolled_back", "cancelled"],
+      "description": "Overall deployment status"
+    },
+
+    "resolved_payload": {
+      "type": "object",
+      "description": "Resolved app-config: all placeholders replaced, user_editable + non_editable merged into values.",
+      "required": ["metadata", "defaults", "deployment_order", "components"],
+      "additionalProperties": false,
+      "properties": {
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "nf":               { "type": "string" },
+            "vendor":           { "type": "string" },
+            "description":      { "type": "string" },
+            "total_components":  { "type": "integer" },
+            "total_charts":      { "type": "integer" },
+            "platform":         { "type": "string" },
+            "schema_version":   { "type": "string" }
+          }
+        },
+        "defaults": {
+          "type": "object",
+          "properties": {
+            "helm_registry":    { "type": "string" },
+            "image_registry":   { "type": "string" },
+            "pull_secret":      { "type": "string" },
+            "storage_class":    { "type": "string" },
+            "service_account_prefix": { "type": "string" },
+            "node_selector":    { "type": "object" },
+            "gitops_repo":      { "type": "string" },
+            "gitops_branch":    { "type": "string" },
+            "argocd_project":   { "type": "string" },
+            "argocd_app_of_apps": { "type": "string" }
+          }
+        },
+        "deployment_order": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "component": { "type": "string" },
+              "batch":     { "type": "integer" }
+            }
+          }
+        },
+        "components": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/resolved_component" }
+        }
+      }
+    },
+
+    "resolved_component": {
+      "type": "object",
+      "required": ["display_name", "namespace", "deployment_config", "charts"],
+      "properties": {
+        "display_name":      { "type": "string" },
+        "namespace":         { "type": "string" },
+        "deployment_config": {
+          "type": "object",
+          "properties": {
+            "manual_approval":  { "type": "boolean" },
+            "approval_message": { "type": "string" },
+            "health_check":     { "type": "object" },
+            "auto_rollback":    { "type": "boolean" },
+            "sync_timeout":     { "type": "string" }
+          }
+        },
+        "depends_on": { "type": "array", "items": { "type": "string" } },
+        "charts": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/resolved_chart" }
+        }
+      }
+    },
+
+    "resolved_chart": {
+      "type": "object",
+      "description": "Chart with resolved values (no user_editable/non_editable split — merged into values).",
+      "required": ["chart_name", "chart_version", "deploy_order", "sync_wave", "type", "values"],
+      "properties": {
+        "chart_name":    { "type": "string" },
+        "chart_version": { "type": "string" },
+        "deploy_order":  { "type": "integer" },
+        "sync_wave":     { "type": "string" },
+        "type":          { "type": "string", "enum": ["umbrella", "standalone", "multi_instance"] },
+        "values":        { "type": "object", "description": "Merged and resolved Helm values (JSON mirroring values.yaml)" },
+        "instances": {
+          "type": "object",
+          "description": "For multi_instance only. Each instance has its own resolved values.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "suffix": { "type": "string" },
+              "values": { "type": "object" }
+            }
+          }
+        }
+      }
+    },
+
+    "runtime": {
+      "type": "object",
+      "description": "Deployment progress. Written by pipeline via PUT callbacks, read by Hub/UI.",
+      "required": ["deployed", "component_results"],
+      "additionalProperties": false,
+      "properties": {
+        "deployed": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Component keys that have been successfully deployed"
+        },
+        "current": {
+          "type": ["string", "null"],
+          "description": "Component key currently being deployed"
+        },
+        "current_pipeline_id": {
+          "type": ["integer", "null"],
+          "description": "GitLab CI pipeline ID for the current component"
+        },
+        "pending_approval": {
+          "type": "boolean",
+          "default": false,
+          "description": "True when Hub is waiting for manual approval to proceed"
+        },
+        "component_results": {
+          "type": "object",
+          "description": "Map of component_key -> deployment result",
+          "additionalProperties": { "$ref": "#/$defs/component_result" }
+        }
+      }
+    },
+
+    "component_result": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "$ref": "#/$defs/chart_status", "description": "Derived from chart statuses: healthy only when all charts healthy" },
+        "commit_sha": { "type": ["string", "null"], "description": "Git commit SHA for this component's GitOps commit" },
+        "pipeline_id": { "type": ["integer", "null"], "description": "GitLab CI pipeline ID" },
+        "deployed_at": { "type": ["string", "null"], "format": "date-time" },
+        "charts": {
+          "type": "object",
+          "description": "Map of chart_key (or instance_key for multi_instance) -> chart result",
+          "additionalProperties": { "$ref": "#/$defs/chart_result" }
+        }
+      }
+    },
+
+    "chart_result": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status":        { "$ref": "#/$defs/chart_status" },
+        "synced_at":     { "type": ["string", "null"], "format": "date-time", "description": "When ArgoCD sync completed" },
+        "health_report": {
+          "type": ["object", "null"],
+          "description": "Health check details reported by pipeline",
+          "properties": {
+            "pods_ready":               { "type": "string", "description": "e.g. 6/6" },
+            "services_with_endpoints":  { "type": "string", "description": "e.g. 3/3" },
+            "version_match":            { "type": "boolean" }
+          }
+        },
+        "error": {
+          "type": ["string", "null"],
+          "description": "Error message if status is unhealthy"
+        }
+      }
+    },
+
+    "chart_status": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "synced", "healthy", "unhealthy", "rolled_back", "skipped"],
+      "description": "Lifecycle status of a chart deployment"
+    }
+  }
+}

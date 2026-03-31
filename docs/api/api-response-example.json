@@ -1,0 +1,384 @@
+{
+  "deployment_id": "deploy-2026-02-09-001",
+  "helix_id": "HELIX-12345",
+  "action": "deploy",
+  "environment": "prod",
+  "nf": "ims",
+  "status": "in_progress",
+  "is_bootstrap": false,
+  "created_at": "2026-02-09T10:00:00Z",
+
+  "payload": {
+    "metadata": {
+      "nf": "ims",
+      "vendor": "mavenir",
+      "description": "IP Multimedia Subsystem",
+      "total_components": 14,
+      "total_charts": 17,
+      "platform": "OCP",
+      "schema_version": "1.0.0"
+    },
+    "defaults": {
+      "helm_registry": "https://secure-nexus.vmo2.internal/repository/helm-ims",
+      "image_registry": "https://quay.vmo2.internal/vmo2-ims",
+      "pull_secret": "mav-reg",
+      "storage_class": "ocs-storagecluster-ceph-rbd",
+      "service_account_prefix": "ims",
+      "node_selector": { "ims": "true" },
+      "gitops_repo": "https://gitlab.vmo2.internal/cnf/ims-gitops.git",
+      "gitops_branch": "main",
+      "argocd_project": "ims-prod",
+      "argocd_app_of_apps": "ims-prod-apps"
+    },
+    "deployment_order": [
+      { "component": "cms", "batch": 1 },
+      { "component": "imc", "batch": 2 },
+      { "component": "mtas", "batch": 3 },
+      { "component": "ftas", "batch": 3 },
+      { "component": "agw", "batch": 4 },
+      { "component": "enumfe", "batch": 4 },
+      { "component": "sceas", "batch": 5 },
+      { "component": "lrf", "batch": 5 },
+      { "component": "muag", "batch": 6 },
+      { "component": "fuag", "batch": 6 },
+      { "component": "crdl", "batch": 7 },
+      { "component": "cbf", "batch": 8 },
+      { "component": "lixp", "batch": 8 },
+      { "component": "mrf", "batch": 9 }
+    ],
+
+    "components": {
+
+      "cms": {
+        "display_name": "Call Management Server",
+        "namespace": "ims-cms",
+        "deployment_config": {
+          "manual_approval": true,
+          "approval_message": "CMS deployed. Verify arbitrator election and replication before proceeding.",
+          "health_check": { "type": "pod_readiness", "timeout": "15m" },
+          "auto_rollback": false,
+          "sync_timeout": "20m"
+        },
+        "depends_on": [],
+        "charts": {
+          "cmsplatform": {
+            "chart_name": "vmo2-ims-cmsplatform",
+            "chart_version": "9.0.14-15-v5",
+            "deploy_order": 1,
+            "sync_wave": "-5",
+            "type": "umbrella",
+            "values": {
+              "global": {
+                "todeploycmsha": true,
+                "todeployzkkafka": false,
+                "namespace": "ims-cms-slough",
+                "image": {
+                  "repository": "quay.vmo2.internal/vmo2-ims",
+                  "init_image": "cmssvcinit:CMS_14_15A",
+                  "arbitrator_image": "cmsarbitrator07:01"
+                },
+                "imagePullSecrets": "mav-reg",
+                "storageclass": { "storageclassname": "ocs-storagecluster-ceph-rbd" },
+                "arbitratorresource": {
+                  "request": { "cpu": "1000m", "memory": "1000Mi" },
+                  "limit": { "cpu": "1100m", "memory": "1000Mi" }
+                },
+                "zk": { "replicas": 3 },
+                "kafka": { "replicas": 3 },
+                "ZKVolume": { "size": "5Gi" },
+                "KAFKAVolume": { "size": "10Gi" },
+                "PRIVILEGED_MODE": false,
+                "isOS": true,
+                "serviceAccountName": "ims-cms-svc"
+              }
+            }
+          },
+          "cmsnfv": {
+            "chart_name": "vmo2-ims-cmsnfv",
+            "chart_version": "9.0.14-15-v6",
+            "deploy_order": 2,
+            "sync_wave": "-4",
+            "type": "standalone",
+            "values": {
+              "global": {
+                "namespace": "ims-cms-slough",
+                "image": {
+                  "repository": "quay.vmo2.internal/vmo2-ims",
+                  "cmsImage": "cmsnfv-rh8-p_9_0_14_15_v7:CMS_14_15A",
+                  "imagePullSecrets": "mav-reg"
+                },
+                "CreateServiceAccount": true,
+                "CreateSSCRoles": true,
+                "toCreateOAMVLAN": true,
+                "toCreateDBVLAN": true,
+                "toCreateLIVLAN": true,
+                "toCreateNetconfVLAN": false,
+                "resources": {
+                  "request": { "cpu": "16", "memory": "64Gi" },
+                  "limit": { "cpu": "16", "memory": "64Gi" }
+                },
+                "cms_Oam_eth1": {
+                  "master": "bond0.2410",
+                  "ipamrangestart": "10.69.96.4",
+                  "ipamsrangeend": "10.69.96.10",
+                  "gateway": "10.69.96.1"
+                },
+                "cms_db_eth2": {
+                  "master": "bond2.2420",
+                  "ipamrangestart": "10.69.97.4",
+                  "ipamsrangeend": "10.69.97.10",
+                  "gateway": "10.69.97.1"
+                },
+                "cms_li_eth5": {
+                  "master": "bond2.2430",
+                  "ipamrangestart": "10.69.98.4",
+                  "ipamsrangeend": "10.69.98.10",
+                  "gateway": "10.69.98.1"
+                },
+                "ActiveCMSPVolume": {
+                  "size": "250Gi",
+                  "storageclassname": "ocs-storagecluster-ceph-rbd"
+                },
+                "ActiveCMS": {
+                  "HOSTNAME": "CMS-NTM-472-CMS-001",
+                  "STARTUP_STATE": "active",
+                  "OAMIP": "10.69.96.4",
+                  "PEER_CMS_OAMIP": "10.69.96.5",
+                  "OAMVIP": ["10.69.96.100"],
+                  "REPLICATION_IP": "10.69.97.4",
+                  "PEER_REPLICATION_IP": "10.69.97.5",
+                  "REPLICATION_VIP": ["10.69.97.100"],
+                  "ETH1GW": "10.69.96.1",
+                  "ARBITARATOR_FQDN": "10.69.96.20",
+                  "KUBEMASTERIP": "10.69.0.10",
+                  "KAFKA_IPS_WITH_PORTS": "10.69.96.21:9093,10.69.96.22:9093"
+                },
+                "StandbyCMS": { "STARTUP_STATE": "standby" },
+                "StandbyCMSPVolume": {
+                  "size": "250Gi",
+                  "storageclassname": "ocs-storagecluster-ceph-rbd"
+                },
+                "LIIP": "10.69.98.4",
+                "PEER_LIIP": "10.69.98.5",
+                "LIVIP": ["10.69.98.100"],
+                "LI_GW": "10.69.98.1",
+                "cmsOAMVIP": ["10.69.96.100"],
+                "USE_VAULT_INTEGRATION": false,
+                "PRIVILEGED_MODE": "disabled"
+              }
+            }
+          }
+        }
+      },
+
+      "imc": {
+        "display_name": "IMS Media Controller",
+        "namespace": "ims-imc",
+        "deployment_config": {
+          "manual_approval": false,
+          "health_check": { "type": "pod_readiness", "timeout": "10m" },
+          "auto_rollback": true,
+          "sync_timeout": "15m"
+        },
+        "depends_on": ["cms"],
+        "charts": {
+          "imc": {
+            "chart_name": "vmo2-ims-imc",
+            "chart_version": "1.15.0-ims-r-11-0-28-0",
+            "deploy_order": 3,
+            "sync_wave": "-4",
+            "type": "umbrella",
+            "values": {
+              "global": {
+                "namespace": { "name": "ims-imc-slough" },
+                "image": { "repository": "quay.vmo2.internal/vmo2-ims" },
+                "image_secrets": [{ "name": "mav-reg" }],
+                "networks": [
+                  { "name": "macvlan-imc-sm-oam", "type": "networks_macvlan", "master": "bond0.2410", "mode": "bridge", "ipam": { "type": "whereabouts", "range": "10.69.96.20-10.69.96.30/26" } }
+                ]
+              },
+              "sm": {
+                "replicas": 3,
+                "image": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-sm-r_2_0_15_1-v1:IMS-R_11_0_28_0",
+                "cmsIPAddresses": ["10.69.96.4", "10.69.96.5"],
+                "networking": { "ipPools": [{ "addressRangeStart": "10.69.96.50", "addressRangeEnd": "10.69.96.55", "type": "PIP" }] },
+                "resources": {
+                  "limits": { "cpu": "4000m", "memory": "16G" },
+                  "requests": { "cpu": "4000m", "memory": "16G" }
+                },
+                "volumes": {
+                  "sm-storage": { "resources": { "requests": { "storage": "31G" } }, "class": "ocs-storagecluster-ceph-rbd" },
+                  "sm-etcd": { "resources": { "requests": { "storage": "10G" } }, "class": "ocs-storagecluster-ceph-rbd" }
+                }
+              },
+              "imc":    { "replicas": 2, "image": "rhel-ubi8-minimal-mone-imc:IMS-R_11_0_28_0" },
+              "sipre":  { "replicas": 2, "image": "rhel-ubi8-minimal-mone-resip:IMS-R_11_0_28_0" },
+              "diamre": { "replicas": 2, "image": "rhel-ubi8-minimal-mone-rediam:IMS-R_11_0_28_0" },
+              "gtre":   { "replicas": 2, "image": "rhel-ubi8-minimal-mone-regt:IMS-R_11_0_28_0" },
+              "vlbfe":  { "replicas": 2, "image": "rhel-ubi8-minimal-mone-vlbfe:IMS-R_11_0_28_0" }
+            }
+          }
+        }
+      },
+
+      "crdl": {
+        "display_name": "Converged Real-time Database Layer",
+        "namespace": "ims-crdl",
+        "deployment_config": {
+          "manual_approval": true,
+          "approval_message": "CRDL instances deployed. Verify DB cluster health before proceeding.",
+          "health_check": { "type": "pod_readiness", "timeout": "15m" },
+          "auto_rollback": false,
+          "sync_timeout": "20m"
+        },
+        "depends_on": ["cms"],
+        "charts": {
+          "crdladmin": {
+            "chart_name": "vmo2-ims-crdladmin",
+            "chart_version": "6.0.0",
+            "deploy_order": 12,
+            "sync_wave": "0",
+            "type": "standalone",
+            "values": {
+              "global": {
+                "namespace": "ims-crdl-slough",
+                "image": { "repository": "quay.vmo2.internal/vmo2-ims" },
+                "imagePullSecrets": [{ "name": "mav-reg" }]
+              },
+              "crdladmin": {
+                "replicas": 1,
+                "image": "crdladmin:6.0.0"
+              }
+            }
+          },
+          "crdldb": {
+            "chart_name": "vmo2-ims-crdldb",
+            "chart_version": "6.2.0",
+            "deploy_order": 13,
+            "sync_wave": "0",
+            "type": "multi_instance",
+            "instances": {
+              "mtas": {
+                "suffix": "-mtas",
+                "values": {
+                  "global": {
+                    "namespace": "ims-crdl-slough",
+                    "image": { "repository": "quay.vmo2.internal/vmo2-ims" }
+                  },
+                  "crdldb": {
+                    "replicas": 3,
+                    "image": "crdldb:6.2.0",
+                    "target_nf": "mtas"
+                  }
+                }
+              },
+              "ftas": {
+                "suffix": "-ftas",
+                "values": {
+                  "global": {
+                    "namespace": "ims-crdl-slough",
+                    "image": { "repository": "quay.vmo2.internal/vmo2-ims" }
+                  },
+                  "crdldb": {
+                    "replicas": 3,
+                    "image": "crdldb:6.2.0",
+                    "target_nf": "ftas"
+                  }
+                }
+              },
+              "imc": {
+                "suffix": "-imc",
+                "values": {
+                  "global": {
+                    "namespace": "ims-crdl-slough",
+                    "image": { "repository": "quay.vmo2.internal/vmo2-ims" }
+                  },
+                  "crdldb": {
+                    "replicas": 3,
+                    "image": "crdldb:6.2.0",
+                    "target_nf": "imc"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "runtime": {
+    "deployed": ["cms"],
+    "current": "imc",
+    "current_pipeline_id": 4502,
+    "pending_approval": false,
+    "component_results": {
+      "cms": {
+        "status": "healthy",
+        "commit_sha": "a1b2c3d4e5f6",
+        "pipeline_id": 4501,
+        "deployed_at": "2026-02-09T10:35:00Z",
+        "charts": {
+          "cmsplatform": {
+            "status": "healthy",
+            "synced_at": "2026-02-09T10:28:00Z",
+            "health_report": { "pods_ready": "4/4", "services_with_endpoints": "2/2" },
+            "error": null
+          },
+          "cmsnfv": {
+            "status": "healthy",
+            "synced_at": "2026-02-09T10:35:00Z",
+            "health_report": { "pods_ready": "3/3", "services_with_endpoints": "4/4" },
+            "error": null
+          }
+        }
+      },
+      "imc": {
+        "status": "in_progress",
+        "commit_sha": "f6e5d4c3b2a1",
+        "pipeline_id": 4502,
+        "deployed_at": null,
+        "charts": {
+          "imc": {
+            "status": "in_progress",
+            "synced_at": null,
+            "health_report": null,
+            "error": null
+          }
+        }
+      },
+      "crdl": {
+        "status": "pending",
+        "commit_sha": null,
+        "pipeline_id": null,
+        "deployed_at": null,
+        "charts": {
+          "crdladmin": {
+            "status": "pending",
+            "synced_at": null,
+            "health_report": null,
+            "error": null
+          },
+          "crdldb-mtas": {
+            "status": "pending",
+            "synced_at": null,
+            "health_report": null,
+            "error": null
+          },
+          "crdldb-ftas": {
+            "status": "pending",
+            "synced_at": null,
+            "health_report": null,
+            "error": null
+          },
+          "crdldb-imc": {
+            "status": "pending",
+            "synced_at": null,
+            "health_report": null,
+            "error": null
+          }
+        }
+      }
+    }
+  }
+}
