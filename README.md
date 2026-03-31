@@ -1,6 +1,6 @@
 # ArgoCD Automation — Deployment Orchestration PoC
 
-A proof-of-concept for automated GitOps deployment orchestration of containerised applications using ArgoCD, Helm, and Git. Built for VMO2 Hub's CNF (Cloud-Native Network Function) onboarding platform but designed to be vendor-agnostic and applicable to any Helm-based application stack.
+A proof-of-concept for automated GitOps deployment orchestration of containerised applications using ArgoCD, Helm, and Git. Built CNF (Cloud-Native Network Function) onboarding platform but designed to be vendor-agnostic and applicable to any Helm-based application stack.
 
 ---
 
@@ -592,4 +592,4 @@ uvicorn api.app:app --port 9000 &
 
 ## Contributing
 
-This is a proof-of-concept for handover. The production implementation will be built by the development team based on the requirements in `docs/handover/07b-developer-requirements.md`. The PoC code (FastAPI, shell scripts, charts) serves as a reference — use it to understand the flow, then build the production system in your team's preferred tech stack.
+This is a proof-of-concept for handover.
