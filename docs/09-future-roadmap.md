@@ -93,33 +93,6 @@ Once the core flow works end-to-end.
 | Vulnerability tracking | Findings stored in Hub DB, linked to GitLab audit repo | 3.13 |
 | Audit trail UI | Link to GitLab repo for full history | 3.13 |
 
-### Blueprint Gaps
-
-| Item | Detail | Section |
-|------|--------|---------|
-| Add SIGTRAN network segments | SS7/PSTN interconnect | 4.5 |
-| Add Core-Media network | RTP media path | 4.5 |
-| Add IPv6 access networks | VoWiFi requirements | 4.5 |
-| Complete external endpoint data | Awaiting network team response | 4.6 |
-| Environment-specific sizing multiplier | PROD vs LAB pod counts | 4.3 |
-| Correct TAS DIAMRE sizing (4 → 6) | Fixed HA per site | 4.3 |
-| Clarify IMC/UAG sizing formulas | Awaiting Mavenir | 4.3 |
-
-### Mavenir Open Questions
-
-| # | Question | Section |
-|---|----------|---------|
-| 1 | CMS consolidation — cmsnfv as umbrella? | 2.8 |
-| 2 | MRF consolidation — dmrf_preInstall + dmrf as one chart? | 2.8 |
-| 3 | CRDL instance mapping — how many ArgoCD apps per instance? | 2.8 |
-| 4 | XA structure — deployment order for 3 charts? | 2.8 |
-| 5 | SCEAS Chart.yaml bug — `name: agw` should be `name: sce` | 2.8 |
-| 6 | Deployment order — where does CRDL fit? | 2.8 |
-| 7 | Parallel deployment — which NFs are independent? | 2.8 |
-| 8 | Manual approval gates — which components? | 2.8 |
-| 9 | Health check definitions per component | 2.8, 6.13 |
-| 10 | Secrets strategy — Vault/VSO vs pre-created | 2.8 |
-
 ### Deployment Hardening
 
 | Item | Detail | Section |
@@ -231,17 +204,19 @@ These two capabilities eliminate the biggest manual bottleneck: understanding ve
 
 ## 9.6 Known Technical Debt
 
-| Item | Impact | Fix |
-|------|--------|-----|
-| PIP format typo in AGW template | Incorrect array format in generated values | Fix `["<ip>"]` to `["ip"]` |
-| FTAS uses CIDR-only range | Different from standard `ipam.range` format | Use `whereabouts_range_cidr` function |
-| CMS uses non-standard IPAM fields | `ipamsubnet`, `ipamrangestart` instead of `ipam.range` | CMS-specific, document as exception |
-| ENUMFE pci_env casing | Lowercase vs uppercase inconsistency | Normalise to expected format |
-| SCEAS Chart.yaml bug | References `name: agw` but sub-chart is `sce` | Vendor fix needed |
+| Area | Item | Impact | Fix |
+|------|------|--------|-----|
+| **Onboarding** | App-config template creation is fully manual | Onboarding a new NF takes weeks | AI-assisted generation (Section 9.5 Phase 1) |
+| **Onboarding** | No automated validation that app-config covers all chart values | Missing values surface at deploy time, not onboarding time | Schema-based completeness check against Helm chart values.schema.json |
+| **Resolution** | Support functions assume consistent vendor IPAM field naming | Vendor-specific exceptions (CMS, FTAS) require custom handling | Normalise IPAM fields at intake or add vendor-specific adapters |
+| **Deployment** | Health checks are pod-readiness only | No application-level health validation (e.g., CMS arbitrator election, DB replication) | Define per-component custom health checks in deployment_config |
+| **Deployment** | Partial batch failure policy not enforced | Operator must decide manually whether to continue or stop | Implement configurable policy: fail-fast vs continue-on-error per batch |
+| **Rollback** | Multi-step rollback (past >1 deployment) requires content-based restoration | More complex than single-step git revert | Documented in 6a Section 6.2a but needs testing with real IMS data |
+| **Secrets** | Application secrets expected to pre-exist (Phase 1) | Manual secret creation before first deployment | Automate via Vault + VSO in Phase 2 |
 
 ---
 
-## 9.6 Team Handover Priorities
+## 9.7 Team Handover Priorities
 
 Suggested order:
 
