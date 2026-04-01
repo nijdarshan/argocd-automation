@@ -1,0 +1,281 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "App-Config Blueprint",
+  "description": "Vendor-agnostic blueprint for CNF deployment on Kubernetes. Defines components, charts, Helm values with placeholders, deployment ordering, and orchestration config. Consumed by the Hub, pipeline, and portal.",
+  "type": "object",
+  "required": ["metadata", "defaults", "deployment_order", "components"],
+  "additionalProperties": false,
+  "properties": {
+    "metadata": { "$ref": "#/$defs/metadata" },
+    "defaults": { "$ref": "#/$defs/defaults" },
+    "deployment_order": {
+      "type": "array",
+      "description": "Ordered sequence of components to deploy. Components with the same batch number deploy in parallel.",
+      "items": { "$ref": "#/$defs/deployment_order_entry" },
+      "minItems": 1
+    },
+    "components": {
+      "type": "object",
+      "description": "Map of component_key -> component definition. Each component is the atomic unit for deployment and rollback.",
+      "additionalProperties": { "$ref": "#/$defs/component" },
+      "minProperties": 1
+    }
+  },
+
+  "$defs": {
+
+    "metadata": {
+      "type": "object",
+      "required": ["nf", "vendor", "platform"],
+      "additionalProperties": false,
+      "properties": {
+        "nf":               { "type": "string", "description": "Network function identifier (e.g. ims, pcrf, ccs)" },
+        "vendor":           { "type": "string", "description": "Vendor name (e.g. mavenir, oracle)" },
+        "description":      { "type": "string" },
+        "total_components":  { "type": "integer", "minimum": 1 },
+        "total_charts":      { "type": "integer", "minimum": 1 },
+        "platform":         { "type": "string", "enum": ["OCP", "EKS", "AKS", "RKE2"] },
+        "schema_version":   { "type": "string", "description": "Data model version for forward compatibility (e.g. 1.0.0)" },
+        "created":          { "type": "string", "format": "date" },
+        "last_updated":     { "type": "string", "format": "date" }
+      }
+    },
+
+    "defaults": {
+      "type": "object",
+      "description": "Default values inherited by all components/charts unless overridden.",
+      "required": ["helm_registry", "image_registry", "gitops_repo", "argocd_project"],
+      "additionalProperties": false,
+      "properties": {
+        "helm_registry":          { "type": "string", "format": "uri" },
+        "image_registry":         { "type": "string", "format": "uri" },
+        "pull_secret":            { "type": "string" },
+        "storage_class":          { "type": "string" },
+        "service_account_prefix": { "type": "string" },
+        "node_selector":          { "type": "object", "additionalProperties": { "type": ["string", "boolean"] } },
+        "gitops_repo":            { "type": "string" },
+        "gitops_branch":          { "type": "string", "default": "main" },
+        "argocd_project":         { "type": "string" },
+        "argocd_app_of_apps":     { "type": "string" }
+      }
+    },
+
+    "deployment_order_entry": {
+      "type": "object",
+      "required": ["component", "batch"],
+      "additionalProperties": false,
+      "properties": {
+        "component": { "type": "string", "description": "Must match a key in components{}" },
+        "batch":     { "type": "integer", "minimum": 1, "description": "Components with the same batch deploy in parallel" }
+      }
+    },
+
+    "component": {
+      "type": "object",
+      "required": ["display_name", "namespace", "deployment_config", "charts", "images"],
+      "additionalProperties": false,
+      "properties": {
+        "display_name":      { "type": "string", "description": "Human-readable name (e.g. Call Management Server)" },
+        "namespace":         { "type": "string", "description": "Kubernetes namespace for all charts in this component" },
+        "description":       { "type": "string" },
+        "deployment_config": { "$ref": "#/$defs/deployment_config" },
+        "depends_on": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Component keys that must be deployed before this one"
+        },
+        "charts": {
+          "type": "object",
+          "description": "Map of chart_key -> chart definition. Each chart becomes one ArgoCD Application.",
+          "additionalProperties": { "$ref": "#/$defs/chart" },
+          "minProperties": 1
+        },
+        "images": {
+          "type": "object",
+          "description": "Map of pod_type -> full image reference (registry/name:tag)",
+          "additionalProperties": { "type": "string" }
+        },
+        "secrets": { "$ref": "#/$defs/secrets_config" }
+      }
+    },
+
+    "deployment_config": {
+      "type": "object",
+      "required": ["manual_approval", "auto_rollback"],
+      "additionalProperties": false,
+      "properties": {
+        "manual_approval": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, Hub pauses after this component is healthy and waits for user approval before proceeding"
+        },
+        "approval_message": {
+          "type": "string",
+          "description": "Message shown in Hub UI when awaiting approval"
+        },
+        "health_check": { "$ref": "#/$defs/health_check" },
+        "auto_rollback": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, Hub auto-triggers rollback when health check fails for this component"
+        },
+        "sync_timeout": {
+          "type": "string",
+          "default": "15m",
+          "description": "Max time to wait for ArgoCD sync (Go duration format)"
+        }
+      }
+    },
+
+    "health_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["pod_readiness", "custom"],
+          "default": "pod_readiness"
+        },
+        "timeout": {
+          "type": "string",
+          "default": "10m",
+          "description": "Max time for health check to pass (Go duration format)"
+        },
+        "custom_script": {
+          "type": ["string", "null"],
+          "description": "Path or inline script for custom health check (only when type=custom)"
+        }
+      }
+    },
+
+    "chart": {
+      "type": "object",
+      "required": ["chart_name", "chart_version", "deploy_order", "sync_wave", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "chart_name":    { "type": "string", "description": "Helm chart name as published in the registry" },
+        "chart_version": { "type": "string", "description": "Helm chart version" },
+        "deploy_order":  { "type": "integer", "minimum": 1, "description": "Global ordering across all charts in this NF. Must be unique." },
+        "sync_wave":     { "type": "string", "description": "ArgoCD sync-wave annotation value" },
+        "type": {
+          "type": "string",
+          "enum": ["umbrella", "standalone", "multi_instance"],
+          "description": "Pattern A: umbrella (sub-charts toggled by conditions), Pattern B: standalone (independent chart), Pattern C: multi_instance (same chart deployed N times)"
+        },
+        "helm_registry_override": {
+          "type": "string",
+          "format": "uri",
+          "description": "Override defaults.helm_registry for this chart"
+        },
+        "image_registry_override": {
+          "type": "string",
+          "format": "uri",
+          "description": "Override defaults.image_registry for this chart"
+        },
+        "depends_on": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Chart keys (within this component) that must deploy before this one"
+        },
+        "sub_charts": {
+          "type": "object",
+          "description": "Only for type=umbrella. Map of sub-chart name -> toggle config.",
+          "additionalProperties": { "$ref": "#/$defs/sub_chart" }
+        },
+        "instances": {
+          "type": "object",
+          "description": "Only for type=multi_instance. Map of instance_name -> instance config. Each becomes a separate ArgoCD app.",
+          "additionalProperties": { "$ref": "#/$defs/instance" }
+        },
+        "helm_values": { "$ref": "#/$defs/helm_values" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "umbrella" } } },
+          "then": { "required": ["sub_charts"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "multi_instance" } } },
+          "then": { "required": ["instances"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "standalone" } } },
+          "then": {
+            "not": {
+              "anyOf": [
+                { "required": ["sub_charts"] },
+                { "required": ["instances"] }
+              ]
+            }
+          }
+        }
+      ]
+    },
+
+    "sub_chart": {
+      "type": "object",
+      "required": ["condition"],
+      "additionalProperties": false,
+      "properties": {
+        "condition": { "type": "string", "description": "Helm values path that toggles this sub-chart (e.g. global.todeploycmsha)" },
+        "default":   { "type": "boolean", "description": "Whether enabled by default" }
+      }
+    },
+
+    "instance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "namespace_override": {
+          "type": "string",
+          "description": "Override component namespace for this instance"
+        },
+        "suffix": {
+          "type": "string",
+          "description": "Appended to ArgoCD app name and values path (e.g. -mtas -> crdldb-mtas)"
+        },
+        "values_overrides": {
+          "type": "object",
+          "description": "Nested JSON merged on top of the chart's base helm_values for this instance"
+        }
+      }
+    },
+
+    "helm_values": {
+      "type": "object",
+      "description": "Nested JSON mirroring Helm values.yaml structure. Both sections deep-merged at deployment time (non_editable wins on conflict).",
+      "additionalProperties": false,
+      "properties": {
+        "user_editable": {
+          "type": "object",
+          "description": "Values the portal user can modify. Nested JSON matching Helm values.yaml hierarchy."
+        },
+        "non_editable": {
+          "type": "object",
+          "description": "Locked values with support-function placeholders ({{ fn | arg1 | arg2 }}). Nested JSON matching Helm values.yaml hierarchy."
+        }
+      }
+    },
+
+    "secrets_config": {
+      "type": "object",
+      "description": "Secrets configuration (future — stubbed for now)",
+      "additionalProperties": false,
+      "properties": {
+        "vault_base_path": { "type": "string" },
+        "types": {
+          "type": "object",
+          "properties": {
+            "vso":              { "type": "boolean" },
+            "external_secrets": { "type": "boolean" },
+            "k8s_secrets":      { "type": "boolean" }
+          }
+        },
+        "entries": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

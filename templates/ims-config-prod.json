@@ -1,0 +1,1852 @@
+{
+  "metadata": {
+    "nf": "ims",
+    "type": "helm",
+    "vendor": "mavenir",
+    "description": "IP Multimedia Subsystem VoLTE, VoWiFi, PSTN interconnect, emergency services",
+    "total_components": 14,
+    "total_charts": 17,
+    "platform": "OCP",
+    "schema_version": "1.0.0",
+    "created": "2026-02-09",
+    "last_updated": "2026-02-09"
+  },
+  "defaults": {
+    "helm_registry": "https://secure-nexus.vmo2.internal/repository/helm-ims",
+    "image_registry": "https://quay.vmo2.internal/vmo2-ims",
+    "pull_secret": "mav-reg",
+    "storage_class": "ocs-storagecluster-ceph-rbd",
+    "service_account_prefix": "ims",
+    "node_selector": {
+      "ims": "true"
+    },
+    "gitops_repo": "https://gitlab.vmo2.internal/cnf/ims-gitops.git",
+    "gitops_branch": "main",
+    "argocd_project": "ims-prod",
+    "argocd_app_of_apps": "ims-prod-apps"
+  },
+  "deployment_order": [
+    {
+      "component": "cms",
+      "batch": 1
+    },
+    {
+      "component": "imc",
+      "batch": 2
+    },
+    {
+      "component": "mtas",
+      "batch": 3
+    },
+    {
+      "component": "ftas",
+      "batch": 3
+    },
+    {
+      "component": "agw",
+      "batch": 4
+    },
+    {
+      "component": "enumfe",
+      "batch": 4
+    },
+    {
+      "component": "sceas",
+      "batch": 5
+    },
+    {
+      "component": "lrf",
+      "batch": 5
+    },
+    {
+      "component": "muag",
+      "batch": 6
+    },
+    {
+      "component": "fuag",
+      "batch": 6
+    },
+    {
+      "component": "crdl",
+      "batch": 7
+    },
+    {
+      "component": "cbf",
+      "batch": 8
+    },
+    {
+      "component": "lixp",
+      "batch": 8
+    },
+    {
+      "component": "mrf",
+      "batch": 9
+    }
+  ],
+  "components": {
+    "cms": {
+      "display_name": "Call Management Server",
+      "namespace": "ims-cms",
+      "description": "HA active/standby CMS with arbitrator, Zookeeper, and Kafka",
+      "deployment_config": {
+        "manual_approval": false,
+        "approval_message": "CMS deployed. Conigure XML files before proceeding.",
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "15m",
+          "custom_script": null
+        },
+        "auto_rollback": false,
+        "sync_timeout": "20m"
+      },
+      "depends_on": [],
+      "charts": {
+        "cmsplatform": {
+          "chart_name": "vmo2-ims-cmsplatform",
+          "chart_version": "9.0.14-15-v5",
+          "deploy_order": 1,
+          "sync_wave": "-5",
+          "type": "umbrella",
+          "sub_charts": {
+            "cmsarbitrator": {
+              "condition": "global.todeploycmsha",
+              "default": true
+            },
+            "cms-zk": {
+              "condition": "global.todeployzkkafka",
+              "default": false
+            },
+            "cms-kafka": {
+              "condition": "global.todeployzkkafka",
+              "default": false
+            }
+          },
+          "helm_values": {
+            "user_editable": {
+              "global": {
+                "todeploycmsha": true,
+                "todeployzkkafka": false,
+                "arbitratorresource": {
+                  "request": {
+                    "cpu": "{{ cpu_request | CMS | ARBITRATOR }}",
+                    "memory": "{{ memory_request | CMS | ARBITRATOR }}"
+                  },
+                  "limit": {
+                    "cpu": "{{ cpu_limit | CMS | ARBITRATOR }}",
+                    "memory": "{{ memory_limit | CMS | ARBITRATOR }}"
+                  }
+                },
+                "zk": {
+                  "replicas": "{{ replicas | CMS | ZK }}"
+                },
+                "kafka": {
+                  "replicas": "{{ replicas | CMS | KAFKA }}"
+                },
+                "ZKVolume": {
+                  "size": "{{ storage_size | CMS | ZKVolume }}"
+                },
+                "KAFKAVolume": {
+                  "size": "{{ storage_size | CMS | KAFKAVolume }}"
+                },
+                "PRIVILEGED_MODE": false,
+                "podAntiAffinity": false,
+                "podAZAntiAffinity": false
+              }
+            },
+            "non_editable": {
+              "global": {
+                "namespace": "{{ namespace | dc_name | CMS }}",
+                "image": {
+                  "repository": "{{ image_registry | CMS | env }}",
+                  "init_image": "{{ image | INIT | CMS }}",
+                  "arbitrator_image": "{{ image | ARBITRATOR | CMS }}"
+                },
+                "imagePullSecrets": "{{ pull_secret | tenant | env }}",
+                "storageclass": {
+                  "storageclassname": "{{ storage_class | dc_name | CMS }}"
+                },
+                "isOS": true,
+                "serviceAccountName": "{{ service_account | CMS | env }}"
+              }
+            }
+          }
+        },
+        "cmsnfv": {
+          "chart_name": "vmo2-ims-cmsnfv",
+          "chart_version": "9.0.14-21-v6",
+          "deploy_order": 2,
+          "sync_wave": "-4",
+          "type": "standalone",
+          "depends_on": [
+            "cmsplatform"
+          ],
+          "helm_values": {
+            "user_editable": {
+              "global": {
+                "CreateServiceAccount": true,
+                "CreateSSCRoles": true,
+                "toCreateOAMVLAN": true,
+                "toCreateDBVLAN": true,
+                "toCreateLIVLAN": true,
+                "toCreateNetconfVLAN": false,
+                "resources": {
+                  "request": {
+                    "cpu": "{{ cpu_request | CMS | CMS1 }}",
+                    "memory": "{{ memory_request | CMS | CMS1 }}"
+                  },
+                  "limit": {
+                    "cpu": "{{ cpu_limit | CMS | CMS1 }}",
+                    "memory": "{{ memory_limit | CMS | CMS1 }}"
+                  }
+                },
+                "ActiveCMSPVolume": {
+                  "size": "{{ storage_size | CMS | ActiveCMSPVolume }}"
+                },
+                "ActiveCMS": {
+                  "HOSTNAME": "CMS-NTM-472-CMS-001",
+                  "OPERATOR_NAME": "TefUK",
+                  "DOMAIN_NAME": "mavenir.com",
+                  "ALARM_LOG_TZ": "Europe/London",
+                  "TZ": "Europe/London",
+                  "PROGRAM_TYPE": "NGN",
+                  "GEO_ENABLED": false,
+                  "ARBITARATOR_ENABLED": true,
+                  "IPV6_SUPPORT": "enabled",
+                  "INSTALLATION_MODE": "ha",
+                  "STARTUP_STATE": "active",
+                  "LI_HTTP_ENABLED": true,
+                  "NTP_CONFIGURATION": "enabled",
+                  "NTP_SERVERS": "{{ ntp_servers }}",
+                  "SM_OPERATION_PROTOCOL": "http",
+                  "SM_OPERATION_PORT": "8008",
+                  "LARGE_CONFIG_XML_SUPPORT": true,
+                  "NF_VNFC_GRACEFUL_SHUTDOWN_TIMER": 7200
+                },
+                "StandbyCMS": {
+                  "STARTUP_STATE": "standby"
+                },
+                "StandbyCMSPVolume": {
+                  "size": "{{ storage_size | CMS | StandbyCMSPVolume }}"
+                },
+                "USE_VAULT_INTEGRATION": false,
+                "PRIVILEGED_MODE": "disabled"
+              }
+            },
+            "non_editable": {
+              "global": {
+                "namespace": "{{ namespace | dc_name | CMS }}",
+                "image": {
+                  "repository": "{{ image_registry | CMS | env }}",
+                  "cmsImage": "{{ image | CMS | CMS }}",
+                  "imagePullSecrets": "{{ pull_secret | tenant | env }}"
+                },
+                "cms_Oam_eth1": {
+                  "master": "{{ networks.oam.bond }}",
+                  "ipamrangestart": "{{ ipam_range_start | oam-External | CMS }}",
+                  "ipamsrangeend": "{{ ipam_range_end | oam-External | CMS }}",
+                  "gateway": "{{ gateway_str | oam-External | CMS }}"
+                },
+                "cms_db_eth2": {
+                  "master": "{{ networks.db.bond }}",
+                  "ipamrangestart": "{{ ipam_range_start | db-External | CMS }}",
+                  "ipamsrangeend": "{{ ipam_range_end | db-External | CMS }}",
+                  "gateway": "{{ gateway_str | db-External | CMS }}"
+                },
+                "cms_li_eth5": {
+                  "master": "{{ networks.li.bond }}",
+                  "ipamrangestart": "{{ ipam_range_start | li-External | CMS }}",
+                  "ipamsrangeend": "{{ ipam_range_end | li-External | CMS }}",
+                  "gateway": "{{ gateway_str | li-External | CMS }}"
+                },
+                "ActiveCMSPVolume": {
+                  "storageclassname": "{{ storage_class | dc_name | CMS }}"
+                },
+                "StandbyCMSPVolume": {
+                  "storageclassname": "{{ storage_class | dc_name | CMS }}"
+                },
+                "ActiveCMS": {
+                  "OAMIP": "{{ ipam_range_start | oam-External | CMS1 }}",
+                  "PEER_CMS_OAMIP": "{{ ipam_range_start | oam-External | CMS2 }}",
+                  "OAMVIP": "{{ vip_array | oam-External | CMS }}",
+                  "REPLICATION_IP": "{{ ipam_range_start | db-External | CMS1 }}",
+                  "PEER_REPLICATION_IP": "{{ ipam_range_start | db-External | CMS2 }}",
+                  "REPLICATION_VIP": "{{ vip_array | db-External | CMS }}",
+                  "ETH1GW": "{{ gateway_str | oam-External | CMS }}",
+                  "ARBITARATOR_FQDN": "{{ component_ips | CMS-ARBITRATOR | oam-External }}",
+                  "KUBEMASTERIP": "{{ cluster.api_ip }}",
+                  "KAFKA_IPS_WITH_PORTS": "{{ component_ips | CMS-KAFKA | oam-External }}"
+                },
+                "LIIP": "{{ ipam_range_start | li-External | CMS1 }}",
+                "PEER_LIIP": "{{ ipam_range_start | li-External | CMS2 }}",
+                "LIVIP": "{{ vip_array | li-External | CMS }}",
+                "LI_GW": "{{ gateway_str | li-External | CMS }}",
+                "cmsOAMVIP": "{{ vip_array | oam-External | CMS }}",
+                "staticRoutes": {
+                  "routes": "{{ computed_routes | CMS }}"
+                }
+              }
+            }
+          }
+        }
+      },
+      "images": {
+        "arbitrator": "cmsarbitrator07:01",
+        "init": "cmssvcinit:CMS_14_15A",
+        "cms": "cmsnfv-rh8-p_9_0_14_15_v7:CMS_14_15A",
+        "cms_load": "cmsnfv-rh8-p_9_0_14_15a_v7load:CMS_14_15A",
+        "cms_packages": "cmsnfv-rh8-p_9_0_14_15_v7packages:CMS_14_15A",
+        "sidecar": "cmssvcinit:CMS_15_15A"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/cms",
+        "types": {
+          "vso": true,
+          "external_secrets": true,
+          "k8s_secrets": true
+        },
+        "entries": [
+          "registry-credentials",
+          "ssh-keys",
+          "gui-certificates",
+          "db-credentials",
+          "vault-approle"
+        ]
+      }
+    },
+    "imc": {
+      "display_name": "IMS Media Controller",
+      "namespace": "ims-imc",
+      "description": "Umbrella chart: imc, vlbfe, sipre, diamre, gtre, sm",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "10m",
+          "custom_script": null
+        },
+        "auto_rollback": true,
+        "sync_timeout": "15m"
+      },
+      "depends_on": [
+        "cms"
+      ],
+      "charts": {
+        "imc": {
+          "chart_name": "vmo2-ims-imc",
+          "chart_version": "1.15.0-ims-r-11-0-28-0",
+          "deploy_order": 3,
+          "sync_wave": "-4",
+          "type": "umbrella",
+          "sub_charts": {
+            "imc": {
+              "condition": "imc.enabled",
+              "default": true
+            },
+            "vlbfe": {
+              "condition": "vlbfe.enabled",
+              "default": true
+            },
+            "sipre": {
+              "condition": "sipre.enabled",
+              "default": true
+            },
+            "diamre": {
+              "condition": "diamre.enabled",
+              "default": true
+            },
+            "gtre": {
+              "condition": "gtre.enabled",
+              "default": true
+            },
+            "sm": {
+              "condition": "sm.enabled",
+              "default": true
+            }
+          },
+          "helm_values": {
+            "user_editable": {
+              "global": {
+                "coredump": true,
+                "enableNetworkPolicy": false
+              }
+            },
+            "non_editable": {
+              "global": {
+                "namespace": {
+                  "name": "{{ namespace | dc_name | IMC }}"
+                },
+                "image": {
+                  "repository": "{{ image_registry | IMC | env }}"
+                },
+                "image_secrets": [
+                  {
+                    "name": "{{ pull_secret | tenant | env }}"
+                  }
+                ],
+                "networks": "{{ computed_networks | IMC }}"
+              },
+              "sm": {
+                "replicas": "{{ replicas | IMC | SM }}",
+                "image": "{{ image | SM | IMC }}",
+                "cmsIPAddresses": "{{ component_ips | CMS | oam-External }}",
+                "networking": {
+                  "ipPools": "{{ computed_ip_pools | IMC }}"
+                },
+                "networks": "{{ computed_sm_network_refs | IMC }}",
+                "resources": {
+                  "limits": {
+                    "cpu": "{{ cpu_limit | IMC | SM }}",
+                    "memory": "{{ memory_limit | IMC | SM }}"
+                  },
+                  "requests": {
+                    "cpu": "{{ cpu_request | IMC | SM }}",
+                    "memory": "{{ memory_request | IMC | SM }}"
+                  }
+                },
+                "volumes": {
+                  "sm-storage": {
+                    "resources": {
+                      "requests": {
+                        "storage": "{{ storage_size | IMC | sm-storage }}"
+                      }
+                    },
+                    "class": "{{ storage_class | dc_name | IMC }}"
+                  },
+                  "sm-etcd": {
+                    "resources": {
+                      "requests": {
+                        "storage": "{{ storage_size | IMC | sm-etcd }}"
+                      }
+                    },
+                    "class": "{{ storage_class | dc_name | IMC }}"
+                  }
+                }
+              },
+              "imc": {
+                "replicas": "{{ replicas | IMC | IMC }}",
+                "image": "{{ image | IMC | IMC }}",
+                "networks": "{{ computed_imc_network_refs | IMC }}"
+              },
+              "sipre": {
+                "replicas": "{{ replicas | IMC | SIPRE }}",
+                "image": "{{ image | SIPRE | IMC }}",
+                "networks": "{{ computed_sipre_network_refs | IMC }}"
+              },
+              "diamre": {
+                "replicas": "{{ replicas | IMC | DIAMRE }}",
+                "image": "{{ image | DIAMRE | IMC }}",
+                "networks": "{{ computed_diamre_network_refs | IMC }}"
+              },
+              "gtre": {
+                "replicas": "{{ replicas | IMC | GTRE }}",
+                "image": "{{ image | GTRE | IMC }}",
+                "networks": "{{ computed_gtre_network_refs | IMC }}"
+              },
+              "vlbfe": {
+                "replicas": "{{ replicas | IMC | VLBFE }}",
+                "image": "{{ image | VLBFE | IMC }}",
+                "networks": "{{ computed_vlbfe_network_refs | IMC }}"
+              }
+            }
+          }
+        }
+      },
+      "images": {
+        "sm": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-sm-r_2_0_15_1-v1:IMS-R_11_0_28_0",
+        "imc": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-imc-r_11_0_28_0-v1:IMS-R_11_0_28_0",
+        "sipre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-resip-r_2_0_66_0d-v1:IMS-R_11_0_28_0",
+        "diamre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-rediam-r_2_0_67_0d-v2:IMS-R_11_0_28_0",
+        "gtre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-regt-r_2_0_71_0c-v1:IMS-R_11_0_28_0",
+        "vlbfe": "rhel-ubi8-minimal-mone-rhel_8_6_rm-vlbfe-v-r_1_0_53_1-v3:IMS-R_11_0_28_0"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/imc",
+        "types": {
+          "vso": true,
+          "external_secrets": true,
+          "k8s_secrets": true
+        },
+        "entries": [
+          "registry-credentials",
+          "ssh-keys",
+          "netconf-ssh-keys"
+        ]
+      }
+    },
+    "mtas": {
+      "display_name": "Mobile Telephony Application Server",
+      "namespace": "ims-mtas",
+      "description": "Umbrella chart: tas, vlbfe, sipre, diamre, gtre, sm, ss7re",
+      "deployment_config": {
+        "manual_approval": true,
+        "approval_message": "MTAS deployed. Verify SIP registration and TAS health before proceeding.",
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "10m",
+          "custom_script": null
+        },
+        "auto_rollback": true,
+        "sync_timeout": "15m"
+      },
+      "depends_on": [
+        "cms",
+        "imc"
+      ],
+      "charts": {
+        "mtas": {
+          "chart_name": "vmo2-ims-mtas",
+          "chart_version": "1.15.0-mtas-r-11-1-42-0c",
+          "deploy_order": 4,
+          "sync_wave": "-3",
+          "type": "umbrella",
+          "sub_charts": {
+            "tas": {
+              "condition": "tas.enabled",
+              "default": true
+            },
+            "vlbfe": {
+              "condition": "vlbfe.enabled",
+              "default": true
+            },
+            "sipre": {
+              "condition": "sipre.enabled",
+              "default": true
+            },
+            "diamre": {
+              "condition": "diamre.enabled",
+              "default": true
+            },
+            "gtre": {
+              "condition": "gtre.enabled",
+              "default": true
+            },
+            "sm": {
+              "condition": "sm.enabled",
+              "default": true
+            },
+            "ss7re": {
+              "condition": "ss7re.enabled",
+              "default": true
+            }
+          },
+          "helm_values": {
+            "user_editable": {
+              "global": {
+                "coredump": true,
+                "enableNetworkPolicy": false,
+                "enableMultiNetworkPolicy": false
+              },
+              "sm": {
+                "extra_user_data": {
+                  "config": {
+                    "VNF_TYPE": "TAS",
+                    "CLOUD_PROFILE_ID": "NFV30"
+                  }
+                }
+              }
+            },
+            "non_editable": {
+              "global": {
+                "namespace": {
+                  "name": "{{ namespace | dc_name | MTAS }}"
+                },
+                "image": {
+                  "repository": "{{ image_registry | MTAS | env }}"
+                },
+                "image_secrets": [
+                  {
+                    "name": "{{ pull_secret | tenant | env }}"
+                  }
+                ],
+                "networks": "{{ computed_networks | MTAS }}"
+              },
+              "sm": {
+                "replicas": "{{ replicas | MTAS | SM }}",
+                "image": "{{ image | SM | MTAS }}",
+                "cmsIPAddresses": "{{ component_ips | CMS | oam-External }}",
+                "networking": {
+                  "ipPools": "{{ computed_ip_pools | MTAS }}"
+                },
+                "networks": "{{ computed_sm_network_refs | MTAS }}",
+                "resources": {
+                  "limits": {
+                    "cpu": "{{ cpu_limit | MTAS | SM }}",
+                    "memory": "{{ memory_limit | MTAS | SM }}"
+                  },
+                  "requests": {
+                    "cpu": "{{ cpu_request | MTAS | SM }}",
+                    "memory": "{{ memory_request | MTAS | SM }}"
+                  }
+                },
+                "volumes": {
+                  "sm-storage": {
+                    "resources": {
+                      "requests": {
+                        "storage": "{{ storage_size | MTAS | sm-storage }}"
+                      }
+                    },
+                    "class": "{{ storage_class | dc_name | MTAS }}"
+                  },
+                  "sm-etcd": {
+                    "resources": {
+                      "requests": {
+                        "storage": "{{ storage_size | MTAS | sm-etcd }}"
+                      }
+                    }
+                  }
+                }
+              },
+              "tas": {
+                "replicas": "{{ replicas | MTAS | TAS }}",
+                "image": "{{ image | TAS | MTAS }}",
+                "networks": "{{ computed_tas_network_refs | MTAS }}",
+                "resources": {
+                  "limits": {
+                    "cpu": "{{ cpu_limit | MTAS | TAS }}",
+                    "memory": "{{ memory_limit | MTAS | TAS }}"
+                  },
+                  "requests": {
+                    "cpu": "{{ cpu_request | MTAS | TAS }}",
+                    "memory": "{{ memory_request | MTAS | TAS }}"
+                  }
+                }
+              },
+              "sipre": {
+                "replicas": "{{ replicas | MTAS | SIPRE }}",
+                "image": "{{ image | SIPRE | MTAS }}",
+                "networks": "{{ computed_sipre_network_refs | MTAS }}"
+              },
+              "diamre": {
+                "replicas": "{{ replicas | MTAS | DIAMRE }}",
+                "image": "{{ image | DIAMRE | MTAS }}",
+                "networks": "{{ computed_diamre_network_refs | MTAS }}"
+              },
+              "gtre": {
+                "replicas": "{{ replicas | MTAS | GTRE }}",
+                "image": "{{ image | GTRE | MTAS }}",
+                "networks": "{{ computed_gtre_network_refs | MTAS }}"
+              },
+              "vlbfe": {
+                "replicas": "{{ replicas | MTAS | VLBFE }}",
+                "image": "{{ image | VLBFE | MTAS }}",
+                "networks": "{{ computed_vlbfe_network_refs | MTAS }}",
+                "resources": {
+                  "limits": {
+                    "hugepages-1Gi": "{{ memory_limit | MTAS | VLBFE-hugepages }}"
+                  }
+                }
+              },
+              "ss7re": {
+                "replicas": "{{ replicas | MTAS | SS7RE }}",
+                "image": "{{ image | SS7RE | MTAS }}",
+                "networks": "{{ computed_ss7re_network_refs | MTAS }}"
+              }
+            }
+          }
+        }
+      },
+      "images": {
+        "sm": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-sm-r_2_0_15_1-v1:MTAS_R_11_1_42_0C",
+        "tas": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-mtas-r_11_1_42_0c-v7:MTAS_R_11_1_42_0C",
+        "sipre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-resip-r_2_0_66_0d-v1:MTAS_R_11_1_42_0C",
+        "diamre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-rediam-r_2_0_67_0d-v2:MTAS_R_11_1_42_0C",
+        "gtre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-regt-r_2_0_71_0c-v1:MTAS_R_11_1_42_0C",
+        "vlbfe": "rhel-ubi8-minimal-mone-rhel_8_6_rm-vlbfe-v-r_1_0_53_1-v3:MTAS_R_11_1_42_0C",
+        "ss7re": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-ress7-r_2_0_43_0c-v1:MTAS_R_11_1_42_0C"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/mtas",
+        "types": {
+          "vso": true,
+          "external_secrets": true,
+          "k8s_secrets": true
+        },
+        "entries": [
+          "registry-credentials",
+          "ssh-keys",
+          "sshd-ssh-keys"
+        ]
+      }
+    },
+    "ftas": {
+      "display_name": "Fixed Telephony Application Server",
+      "namespace": "ims-ftas",
+      "description": "Umbrella chart: tas, vlbfe, sipre, diamre, gtre, sm (FTAS variant)",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "10m",
+          "custom_script": null
+        },
+        "auto_rollback": true,
+        "sync_timeout": "15m"
+      },
+      "depends_on": [
+        "cms",
+        "imc"
+      ],
+      "charts": {
+        "ftas": {
+          "chart_name": "vmo2-ims-ftas",
+          "chart_version": "1.15.0-mtas-r-11-1-42-0c",
+          "deploy_order": 5,
+          "sync_wave": "-3",
+          "type": "umbrella",
+          "sub_charts": {
+            "tas": {
+              "condition": "tas.enabled",
+              "default": true
+            },
+            "vlbfe": {
+              "condition": "vlbfe.enabled",
+              "default": true
+            },
+            "sipre": {
+              "condition": "sipre.enabled",
+              "default": true
+            },
+            "diamre": {
+              "condition": "diamre.enabled",
+              "default": true
+            },
+            "gtre": {
+              "condition": "gtre.enabled",
+              "default": true
+            },
+            "sm": {
+              "condition": "sm.enabled",
+              "default": true
+            }
+          },
+          "helm_values": {
+            "user_editable": {
+              "global": {
+                "coredump": true,
+                "enableNetworkPolicy": false
+              }
+            },
+            "non_editable": {
+              "global": {
+                "namespace": {
+                  "name": "{{ namespace | dc_name | FTAS }}"
+                },
+                "image": {
+                  "repository": "{{ image_registry | FTAS | env }}"
+                },
+                "image_secrets": [
+                  {
+                    "name": "{{ pull_secret | tenant | env }}"
+                  }
+                ],
+                "networks": "{{ computed_networks | FTAS }}"
+              },
+              "sm": {
+                "replicas": "{{ replicas | FTAS | SM }}",
+                "image": "{{ image | SM | FTAS }}",
+                "cmsIPAddresses": "{{ component_ips | CMS | oam-External }}",
+                "networking": {
+                  "ipPools": "{{ computed_ip_pools | FTAS }}"
+                },
+                "networks": "{{ computed_sm_network_refs | FTAS }}",
+                "resources": {
+                  "limits": {
+                    "cpu": "{{ cpu_limit | FTAS | SM }}",
+                    "memory": "{{ memory_limit | FTAS | SM }}"
+                  },
+                  "requests": {
+                    "cpu": "{{ cpu_request | FTAS | SM }}",
+                    "memory": "{{ memory_request | FTAS | SM }}"
+                  }
+                },
+                "volumes": {
+                  "sm-storage": {
+                    "resources": {
+                      "requests": {
+                        "storage": "{{ storage_size | FTAS | sm-storage }}"
+                      }
+                    },
+                    "class": "{{ storage_class | dc_name | FTAS }}"
+                  },
+                  "sm-etcd": {
+                    "resources": {
+                      "requests": {
+                        "storage": "{{ storage_size | FTAS | sm-etcd }}"
+                      }
+                    }
+                  }
+                }
+              },
+              "tas": {
+                "replicas": "{{ replicas | FTAS | TAS }}",
+                "image": "{{ image | TAS | FTAS }}",
+                "networks": "{{ computed_tas_network_refs | FTAS }}",
+                "resources": {
+                  "limits": {
+                    "cpu": "{{ cpu_limit | FTAS | TAS }}",
+                    "memory": "{{ memory_limit | FTAS | TAS }}"
+                  },
+                  "requests": {
+                    "cpu": "{{ cpu_request | FTAS | TAS }}",
+                    "memory": "{{ memory_request | FTAS | TAS }}"
+                  }
+                }
+              },
+              "sipre": {
+                "replicas": "{{ replicas | FTAS | SIPRE }}",
+                "image": "{{ image | SIPRE | FTAS }}",
+                "networks": "{{ computed_sipre_network_refs | FTAS }}"
+              },
+              "diamre": {
+                "replicas": "{{ replicas | FTAS | DIAMRE }}",
+                "image": "{{ image | DIAMRE | FTAS }}",
+                "networks": "{{ computed_diamre_network_refs | FTAS }}"
+              },
+              "gtre": {
+                "replicas": "{{ replicas | FTAS | GTRE }}",
+                "image": "{{ image | GTRE | FTAS }}",
+                "networks": "{{ computed_gtre_network_refs | FTAS }}"
+              },
+              "vlbfe": {
+                "replicas": "{{ replicas | FTAS | VLBFE }}",
+                "image": "{{ image | VLBFE | FTAS }}",
+                "networks": "{{ computed_vlbfe_network_refs | FTAS }}"
+              }
+            }
+          }
+        }
+      },
+      "images": {
+        "sm": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-sm-r_2_0_15_1-v1:MTAS_R_11_1_42_0C",
+        "tas": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-mtas-r_11_1_42_0c-v7:MTAS_R_11_1_42_0C",
+        "sipre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-resip-r_2_0_66_0d-v1:MTAS_R_11_1_42_0C",
+        "diamre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-rediam-r_2_0_67_0d-v2:MTAS_R_11_1_42_0C",
+        "gtre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-regt-r_2_0_71_0c-v1:MTAS_R_11_1_42_0C",
+        "vlbfe": "rhel-ubi8-minimal-mone-rhel_8_6_rm-vlbfe-v-r_1_0_53_1-v3:MTAS_R_11_1_42_0C"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/ftas",
+        "types": {
+          "vso": true,
+          "external_secrets": true,
+          "k8s_secrets": true
+        },
+        "entries": [
+          "registry-credentials",
+          "ssh-keys",
+          "sshd-ssh-keys"
+        ]
+      }
+    },
+    "agw": {
+      "display_name": "Access Gateway",
+      "namespace": "ims-agw",
+      "description": "Umbrella chart: agw, vlbfe, diamre, sm. Heavy SRIOV/DPDK networking.",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "10m",
+          "custom_script": null
+        },
+        "auto_rollback": true,
+        "sync_timeout": "15m"
+      },
+      "depends_on": [
+        "cms",
+        "imc"
+      ],
+      "charts": {
+        "agw": {
+          "chart_name": "vmo2-ims-agw",
+          "chart_version": "1.15.0-agw-r-3-1-18-0",
+          "deploy_order": 6,
+          "sync_wave": "-1",
+          "type": "umbrella",
+          "sub_charts": {
+            "agw": {
+              "condition": "agw.enabled",
+              "default": true
+            },
+            "vlbfe": {
+              "condition": "vlbfe.enabled",
+              "default": true
+            },
+            "diamre": {
+              "condition": "diamre.enabled",
+              "default": true
+            },
+            "sm": {
+              "condition": "sm.enabled",
+              "default": true
+            }
+          },
+          "helm_values": {
+            "user_editable": {
+              "global": {
+                "secrets": false,
+                "enableNetworkPolicy": false,
+                "enableMultiNetworkPolicy": false
+              },
+              "sm": {
+                "extra_user_data": {
+                  "config": {
+                    "VNF_TYPE": "AGW",
+                    "CLOUD_PROFILE_ID": "NFV30"
+                  }
+                }
+              }
+            },
+            "non_editable": {
+              "global": {
+                "namespace": {
+                  "name": "{{ namespace | dc_name | AGW }}"
+                },
+                "image": {
+                  "repository": "{{ image_registry | AGW | env }}"
+                },
+                "image_secrets": [
+                  {
+                    "name": "{{ pull_secret | tenant | env }}"
+                  }
+                ],
+                "serviceAccountName": "ims-agw-svc",
+                "networkPolicies": [],
+                "multiNetworkPolicies": []
+              },
+              "sm": {
+                "replicas": "{{ replicas | AGW | SM }}",
+                "image": "{{ image | SM | AGW }}",
+                "cmsIPAddresses": "{{ component_ips | CMS | oam-External }}",
+                "networking": {
+                  "ipPools": "{{ computed_ip_pools | AGW }}"
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "{{ cpu_limit | AGW | SM }}",
+                    "memory": "{{ memory_limit | AGW | SM }}"
+                  },
+                  "requests": {
+                    "cpu": "{{ cpu_request | AGW | SM }}",
+                    "memory": "{{ memory_request | AGW | SM }}"
+                  }
+                },
+                "volumes": {
+                  "sm-storage": {
+                    "resources": {
+                      "requests": {
+                        "storage": "{{ storage_size | AGW | sm-storage }}"
+                      }
+                    },
+                    "class": "{{ storage_class | dc_name | AGW }}"
+                  },
+                  "sm-etcd": {
+                    "resources": {
+                      "requests": {
+                        "storage": "{{ storage_size | AGW | sm-etcd }}"
+                      }
+                    }
+                  }
+                }
+              },
+              "agw": {
+                "replicas": "{{ replicas | AGW | AGW }}",
+                "image": "{{ image | AGW | AGW }}",
+                "resources": {
+                  "limits": {
+                    "cpu": "{{ cpu_limit | AGW | AGW }}",
+                    "memory": "{{ memory_limit | AGW | AGW }}"
+                  },
+                  "requests": {
+                    "cpu": "{{ cpu_request | AGW | AGW }}",
+                    "memory": "{{ memory_request | AGW | AGW }}"
+                  }
+                },
+                "volumes": {
+                  "agw-storage": {
+                    "resources": {
+                      "requests": {
+                        "storage": "{{ storage_size | AGW | agw-storage }}"
+                      }
+                    }
+                  },
+                  "cdr": {
+                    "resources": {
+                      "requests": {
+                        "storage": "{{ storage_size | AGW | cdr }}"
+                      }
+                    }
+                  }
+                }
+              },
+              "diamre": {
+                "image": "{{ image | DIAMRE | AGW }}",
+                "resources": {
+                  "limits": {
+                    "cpu": "{{ cpu_limit | AGW | DIAMRE }}",
+                    "memory": "{{ memory_limit | AGW | DIAMRE }}"
+                  }
+                },
+                "volumes": {
+                  "diamre-storage": {
+                    "resources": {
+                      "requests": {
+                        "storage": "{{ storage_size | AGW | diamre-storage }}"
+                      }
+                    }
+                  }
+                }
+              },
+              "vlbfe": {
+                "image": "{{ image | VLBFE | AGW }}",
+                "resources": {
+                  "limits": {
+                    "cpu": "{{ cpu_limit | AGW | VLBFE }}",
+                    "memory": "{{ memory_limit | AGW | VLBFE }}",
+                    "hugepages-1Gi": "{{ memory_limit | AGW | VLBFE-hugepages }}"
+                  }
+                },
+                "volumes": {
+                  "vlbfe-storage": {
+                    "resources": {
+                      "requests": {
+                        "storage": "{{ storage_size | AGW | vlbfe-storage }}"
+                      }
+                    }
+                  }
+                }
+              },
+              "networks": [
+                {
+                  "name": "macvlan-agw-sm-oam",
+                  "type": "networks_macvlan",
+                  "master": "bond0.{{ vlan | oam-External | SM }}",
+                  "mode": "bridge",
+                  "ipam": {
+                    "type": "whereabouts",
+                    "datastore": "kubernetes",
+                    "range": "{{ whereabouts_range_end | oam-External | SM }}"
+                  }
+                },
+                {
+                  "name": "macvlan-agw-sm-emx",
+                  "type": "networks_macvlan",
+                  "master": "bond2.{{ vlan | EMX-Signalling-AGW | SM }}",
+                  "mode": "bridge",
+                  "ipam": {
+                    "type": "whereabouts",
+                    "datastore": "kubernetes",
+                    "range": "{{ whereabouts_range_end | EMX-Signalling-AGW | SM }}"
+                  }
+                },
+                {
+                  "name": "macvlan-agw-vfe-oam",
+                  "type": "networks_macvlan",
+                  "master": "bond0.{{ vlan | oam-External | VLB }}",
+                  "mode": "bridge",
+                  "ipam": {
+                    "type": "whereabouts",
+                    "datastore": "kubernetes",
+                    "range": "{{ whereabouts_range_end | oam-External | VLB }}"
+                  }
+                },
+                {
+                  "name": "macvlan-agw-vfe-emx",
+                  "type": "networks_macvlan",
+                  "master": "bond2.{{ vlan | EMX-Signalling-AGW | VLB }}",
+                  "mode": "bridge",
+                  "ipam": {
+                    "type": "whereabouts",
+                    "datastore": "kubernetes",
+                    "range": "{{ whereabouts_range_end | EMX-Signalling-AGW | VLB }}"
+                  }
+                },
+                {
+                  "name": "macvlan-agw-app-oam",
+                  "type": "networks_macvlan",
+                  "master": "bond0.{{ vlan | oam-External | AGW }}",
+                  "mode": "bridge",
+                  "ipam": {
+                    "type": "whereabouts",
+                    "datastore": "kubernetes",
+                    "range": "{{ whereabouts_range_end | oam-External | AGW }}"
+                  }
+                },
+                {
+                  "name": "macvlan-agw-app-emx",
+                  "type": "networks_macvlan",
+                  "master": "bond2.{{ vlan | EMX-Signalling-AGW | AGW }}",
+                  "mode": "bridge",
+                  "ipam": {
+                    "type": "whereabouts",
+                    "datastore": "kubernetes",
+                    "range": "{{ whereabouts_range_end | EMX-Signalling-AGW | AGW }}"
+                  }
+                },
+                {
+                  "name": "macvlan-agw-app-db",
+                  "type": "networks_macvlan",
+                  "master": "bond2.{{ vlan | db-External | AGW }}",
+                  "mode": "bridge",
+                  "ipam": {
+                    "type": "whereabouts",
+                    "datastore": "kubernetes",
+                    "range": "{{ whereabouts_range_end | db-External | AGW }}"
+                  }
+                },
+                {
+                  "name": "macvlan-agw-app-tunnel",
+                  "type": "networks_macvlan",
+                  "master": "bond2.{{ vlan | GRE-Tunnel-AGW | AGW }}",
+                  "mode": "bridge",
+                  "ipam": {
+                    "type": "whereabouts",
+                    "datastore": "kubernetes",
+                    "range": "{{ whereabouts_range_end | GRE-Tunnel-AGW | AGW }}"
+                  }
+                },
+                {
+                  "name": "macvlan-agw-dre-oam",
+                  "type": "networks_macvlan",
+                  "master": "bond0.{{ vlan | oam-External | DIAMRE }}",
+                  "mode": "bridge",
+                  "ipam": {
+                    "type": "whereabouts",
+                    "datastore": "kubernetes",
+                    "range": "{{ whereabouts_range_end | oam-External | DIAMRE }}"
+                  }
+                },
+                {
+                  "name": "macvlan-agw-dre-emx",
+                  "type": "networks_macvlan",
+                  "master": "bond2.{{ vlan | EMX-Signalling-AGW | DIAMRE }}",
+                  "mode": "bridge",
+                  "ipam": {
+                    "type": "whereabouts",
+                    "datastore": "kubernetes",
+                    "range": "{{ whereabouts_range_end | EMX-Signalling-AGW | DIAMRE }}"
+                  }
+                },
+                {
+                  "name": "macvlan-agw-dre-db",
+                  "type": "networks_macvlan",
+                  "master": "bond2.{{ vlan | db-External | DIAMRE }}",
+                  "mode": "bridge",
+                  "ipam": {
+                    "type": "whereabouts",
+                    "datastore": "kubernetes",
+                    "range": "{{ whereabouts_range_end | db-External | DIAMRE }}"
+                  }
+                },
+                {
+                  "name": "macvlan-agw-dre-tunnel",
+                  "type": "networks_macvlan",
+                  "master": "bond2.{{ vlan | GRE-Tunnel-AGW | DIAMRE }}",
+                  "mode": "bridge",
+                  "ipam": {
+                    "type": "whereabouts",
+                    "datastore": "kubernetes",
+                    "range": "{{ whereabouts_range_end | GRE-Tunnel-AGW | DIAMRE }}"
+                  }
+                },
+                {
+                  "name": "sriov-dpdk-agw-vfe-access-1",
+                  "type": "networks_sriov_dpdk",
+                  "sriov_dpdk": "{{ sriov_pool | Access-AGW | ens5f0 }}",
+                  "vlanid": "{{ vlan | Access-AGW | VLB }}"
+                },
+                {
+                  "name": "sriov-dpdk-agw-vfe-access-2",
+                  "type": "networks_sriov_dpdk",
+                  "sriov_dpdk": "{{ sriov_pool | Access-AGW | ens5f1 }}",
+                  "vlanid": "{{ vlan | Access-AGW | VLB }}"
+                },
+                {
+                  "name": "sriov-dpdk-agw-vfe-tunnel-1",
+                  "type": "networks_sriov_dpdk",
+                  "sriov_dpdk": "{{ sriov_pool | GRE-Tunnel-AGW | ens5f0 }}",
+                  "vlanid": "{{ vlan | GRE-Tunnel-AGW | VLB }}"
+                },
+                {
+                  "name": "sriov-dpdk-agw-vfe-tunnel-2",
+                  "type": "networks_sriov_dpdk",
+                  "sriov_dpdk": "{{ sriov_pool | GRE-Tunnel-AGW | ens5f1 }}",
+                  "vlanid": "{{ vlan | GRE-Tunnel-AGW | VLB }}"
+                },
+                {
+                  "name": "sriov-dpdk-agw-vfe-diam-a-1",
+                  "type": "networks_sriov_dpdk",
+                  "sriov_dpdk": "{{ sriov_pool | Diameter-A-AGW | ens5f0 }}",
+                  "vlanid": "{{ vlan | Diameter-A-AGW | VLB }}"
+                },
+                {
+                  "name": "sriov-dpdk-agw-vfe-diam-a-2",
+                  "type": "networks_sriov_dpdk",
+                  "sriov_dpdk": "{{ sriov_pool | Diameter-A-AGW | ens5f1 }}",
+                  "vlanid": "{{ vlan | Diameter-A-AGW | VLB }}"
+                },
+                {
+                  "name": "sriov-dpdk-agw-vfe-diam-b-1",
+                  "type": "networks_sriov_dpdk",
+                  "sriov_dpdk": "{{ sriov_pool | Diameter-B-AGW | ens5f0 }}",
+                  "vlanid": "{{ vlan | Diameter-B-AGW | VLB }}"
+                },
+                {
+                  "name": "sriov-dpdk-agw-vfe-diam-b-2",
+                  "type": "networks_sriov_dpdk",
+                  "sriov_dpdk": "{{ sriov_pool | Diameter-B-AGW | ens5f1 }}",
+                  "vlanid": "{{ vlan | Diameter-B-AGW | VLB }}"
+                },
+                {
+                  "name": "sriov-dpdk-agw-vfe-xcap-1",
+                  "type": "networks_sriov_dpdk",
+                  "sriov_dpdk": "{{ sriov_pool | XCAP-AGW | ens5f0 }}",
+                  "vlanid": "{{ vlan | XCAP-AGW | VLB }}"
+                },
+                {
+                  "name": "sriov-dpdk-agw-vfe-xcap-2",
+                  "type": "networks_sriov_dpdk",
+                  "sriov_dpdk": "{{ sriov_pool | XCAP-AGW | ens5f1 }}",
+                  "vlanid": "{{ vlan | XCAP-AGW | VLB }}"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "images": {
+        "sm": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-sm-r_2_0_15_1-v1:AGW-R_4_1_14_0",
+        "agw": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-agw-r_3_1_14_0-v1:AGW-R_3_1_14_0",
+        "diamre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-rediam-r_2_0_67_0d-v2:AGW-R_3_1_14_0",
+        "vlbfe": "rhel-ubi8-minimal-mone-rhel_8_6_rm-vlbfe-v-r_1_0_53_1-v3:AGW-R_3_1_14_0"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/agw",
+        "types": {
+          "vso": true,
+          "external_secrets": true,
+          "k8s_secrets": true
+        },
+        "entries": [
+          "registry-credentials",
+          "ssh-keys"
+        ]
+      }
+    },
+    "enumfe": {
+      "display_name": "ENUM Front End",
+      "namespace": "ims-enumfe",
+      "description": "Umbrella chart: enumfe, vlbfe, sm, ss7re",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "10m",
+          "custom_script": null
+        },
+        "auto_rollback": true,
+        "sync_timeout": "15m"
+      },
+      "depends_on": [
+        "cms"
+      ],
+      "charts": {
+        "enumfe": {
+          "chart_name": "vmo2-ims-enumfe",
+          "chart_version": "1.15.0-enumfe-r-11-1-42-0c",
+          "deploy_order": 7,
+          "sync_wave": "-4",
+          "type": "umbrella",
+          "sub_charts": {
+            "enumfe": {
+              "condition": "enumfe.enabled",
+              "default": true
+            },
+            "vlbfe": {
+              "condition": "vlbfe.enabled",
+              "default": true
+            },
+            "sm": {
+              "condition": "sm.enabled",
+              "default": true
+            },
+            "ss7re": {
+              "condition": "ss7re.enabled",
+              "default": true
+            }
+          }
+        }
+      },
+      "images": {
+        "sm": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-sm-r_2_0_15_1-v1:ENUMFE_R_11_1_42_0C",
+        "enumfe": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-enumfe-r_11_1_42_0c-v7:ENUMFE_R_11_1_42_0C",
+        "vlbfe": "rhel-ubi8-minimal-mone-rhel_8_6_rm-vlbfe-v-r_1_0_53_1-v3:ENUMFE_R_11_1_42_0C",
+        "ss7re": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-ress7-r_2_0_43_0c-v1:ENUMFE_R_11_1_42_0C"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/enumfe",
+        "types": {
+          "vso": true,
+          "external_secrets": true,
+          "k8s_secrets": true
+        },
+        "entries": [
+          "registry-credentials",
+          "ssh-keys",
+          "netconf-ssh-keys"
+        ]
+      }
+    },
+    "muag": {
+      "display_name": "Mobile Universal Access Gateway",
+      "namespace": "ims-muag",
+      "description": "Umbrella chart: mpvnf, vlbfe, sipre, diamre, gtre, sm, sc, sag, tc, upc",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "10m",
+          "custom_script": null
+        },
+        "auto_rollback": true,
+        "sync_timeout": "15m"
+      },
+      "depends_on": [
+        "cms",
+        "mtas"
+      ],
+      "charts": {
+        "muag": {
+          "chart_name": "vmo2-ims-muag",
+          "chart_version": "1.15.1-ocp-atcf-r-2-7-6-0-nested-argocd",
+          "deploy_order": 8,
+          "sync_wave": "-2",
+          "type": "umbrella",
+          "sub_charts": {
+            "mpvnf": {
+              "condition": "mpvnf.enabled",
+              "default": true
+            },
+            "vlbfe": {
+              "condition": "vlbfe.enabled",
+              "default": true
+            },
+            "sipre": {
+              "condition": "sipre.enabled",
+              "default": true
+            },
+            "diamre": {
+              "condition": "diamre.enabled",
+              "default": true
+            },
+            "gtre": {
+              "condition": "gtre.enabled",
+              "default": true
+            },
+            "sm": {
+              "condition": "sm.enabled",
+              "default": true
+            },
+            "sc": {
+              "condition": "sc.enabled",
+              "default": true
+            },
+            "sag": {
+              "condition": "sag.enabled",
+              "default": true
+            },
+            "tc": {
+              "condition": "tc.enabled",
+              "default": true
+            },
+            "upc": {
+              "condition": "upc.enabled",
+              "default": true
+            }
+          }
+        }
+      },
+      "images": {
+        "sm": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-sm-r_2_0_15_1b-v2:r_2_0_15_1b-v2",
+        "mpvnf": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-vpp_mp-mp-r_2_7_6_0-v1:r_2_7_6_0-v1",
+        "sipre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-resip-r_2_7_6_0-v2:r_2_7_6_0-v2",
+        "diamre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-reudiam-r_2_7_6_0-v2:r_2_7_6_0-v2",
+        "gtre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-reugt-r_2_7_6_0-v2:r_2_7_6_1-patch-v1-Latest",
+        "vlbfe": "rhel-ubi8-minimal-mone-rhel_8_6_rm-vlbfe-v-r_1_0_55_0-v1:r_1_0_55_0-v1",
+        "sc": "rhel-ubi8-minimal-mone-rhel_8_6_vnf_sc-sc-r_2_7_6_0-v3:r_2_7_6_0-v3",
+        "sag": "rhel-ubi8-minimal-mone-rhel_8_6_vnf_sag-sag-r_2_7_6_0-v1:r_2_7_6_0-v1",
+        "tc": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-vpp_tc-tc-r_2_7_6_0-v1:r_2_7_6_0-v1",
+        "upc": "rhel-ubi8-minimal-mone-rhel_8_6_vnf_upc-upc-r_2_7_6_0-v1:r_2_7_6_0-v1"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/muag",
+        "types": {
+          "vso": true,
+          "external_secrets": true,
+          "k8s_secrets": true
+        },
+        "entries": [
+          "registry-credentials",
+          "ssh-keys"
+        ]
+      }
+    },
+    "fuag": {
+      "display_name": "Fixed Universal Access Gateway",
+      "namespace": "ims-fuag",
+      "description": "Umbrella chart: mpvnf, vlbfe, sipre, diamre, gtre, sm, sc, upc",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "10m",
+          "custom_script": null
+        },
+        "auto_rollback": true,
+        "sync_timeout": "15m"
+      },
+      "depends_on": [
+        "cms",
+        "ftas"
+      ],
+      "charts": {
+        "fuag": {
+          "chart_name": "vmo2-ims-fuag",
+          "chart_version": "1.15.1-ocp-atcf-r-2-7-6-0-nested-argocd",
+          "deploy_order": 9,
+          "sync_wave": "-2",
+          "type": "umbrella",
+          "sub_charts": {
+            "mpvnf": {
+              "condition": "mpvnf.enabled",
+              "default": true
+            },
+            "vlbfe": {
+              "condition": "vlbfe.enabled",
+              "default": true
+            },
+            "sipre": {
+              "condition": "sipre.enabled",
+              "default": true
+            },
+            "diamre": {
+              "condition": "diamre.enabled",
+              "default": true
+            },
+            "gtre": {
+              "condition": "gtre.enabled",
+              "default": true
+            },
+            "sm": {
+              "condition": "sm.enabled",
+              "default": true
+            },
+            "sc": {
+              "condition": "sc.enabled",
+              "default": true
+            },
+            "upc": {
+              "condition": "upc.enabled",
+              "default": true
+            }
+          }
+        }
+      },
+      "images": {
+        "sm": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-sm-r_2_0_15_1b-v2:r_2_0_15_1b-v2",
+        "mpvnf": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-vpp_mp-mp-r_2_7_6_0-v1:r_2_7_6_0-v1",
+        "sipre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-resip-r_2_7_6_0-v2:r_2_7_6_0-v2",
+        "diamre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-reudiam-r_2_7_6_0-v2:r_2_7_6_0-v2",
+        "gtre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-reugt-r_2_7_6_0-v2:r_2_7_6_1-patch-v1-Latest",
+        "vlbfe": "rhel-ubi8-minimal-mone-rhel_8_6_rm-vlbfe-v-r_1_0_55_0-v1:r_1_0_55_0-v1",
+        "sc": "rhel-ubi8-minimal-mone-rhel_8_6_vnf_sc-sc-r_2_7_6_0-v3:r_2_7_6_0-v3",
+        "upc": "rhel-ubi8-minimal-mone-rhel_8_6_vnf_upc-upc-r_2_7_6_0-v1:r_2_7_6_0-v1"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/fuag",
+        "types": {
+          "vso": true,
+          "external_secrets": true,
+          "k8s_secrets": true
+        },
+        "entries": [
+          "registry-credentials",
+          "ssh-keys"
+        ]
+      }
+    },
+    "sceas": {
+      "display_name": "Service Centralization & Continuity AS",
+      "namespace": "ims-sceas",
+      "description": "Umbrella chart: sce, vlbfe, sm",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "10m",
+          "custom_script": null
+        },
+        "auto_rollback": true,
+        "sync_timeout": "15m"
+      },
+      "depends_on": [
+        "cms",
+        "imc"
+      ],
+      "charts": {
+        "sceas": {
+          "chart_name": "vmo2-ims-sceas",
+          "chart_version": "1.15.0-agw-r-3-1-14-0",
+          "deploy_order": 10,
+          "sync_wave": "-1",
+          "type": "umbrella",
+          "sub_charts": {
+            "sce": {
+              "condition": "sce.enabled",
+              "default": true
+            },
+            "vlbfe": {
+              "condition": "vlbfe.enabled",
+              "default": true
+            },
+            "sm": {
+              "condition": "sm.enabled",
+              "default": true
+            }
+          }
+        }
+      },
+      "images": {
+        "sm": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-sm-r_2_0_15_1-v1:SCE-R_3_1_14_0",
+        "sce": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-sce-r_3_1_14_0-v1:SCE-R_3_1_14_0",
+        "vlbfe": "rhel-ubi8-minimal-mone-rhel_8_6_rm-vlbfe-v-r_1_0_53_1-v3:SCE-R_3_1_14_0"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/sceas",
+        "types": {
+          "vso": true,
+          "external_secrets": true,
+          "k8s_secrets": true
+        },
+        "entries": [
+          "registry-credentials",
+          "ssh-keys"
+        ]
+      }
+    },
+    "lrf": {
+      "display_name": "Location Retrieval Function",
+      "namespace": "ims-lrf",
+      "description": "Umbrella chart: lrf, vlbfe, sipre, gtre, sm",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "10m",
+          "custom_script": null
+        },
+        "auto_rollback": true,
+        "sync_timeout": "15m"
+      },
+      "depends_on": [
+        "cms"
+      ],
+      "charts": {
+        "lrf": {
+          "chart_name": "vmo2-ims-lrf",
+          "chart_version": "1.15.0-lrf-r-11-0-28-0",
+          "deploy_order": 11,
+          "sync_wave": "0",
+          "type": "umbrella",
+          "sub_charts": {
+            "lrf": {
+              "condition": "lrf.enabled",
+              "default": true
+            },
+            "vlbfe": {
+              "condition": "vlbfe.enabled",
+              "default": true
+            },
+            "sipre": {
+              "condition": "sipre.enabled",
+              "default": true
+            },
+            "gtre": {
+              "condition": "gtre.enabled",
+              "default": true
+            },
+            "sm": {
+              "condition": "sm.enabled",
+              "default": true
+            }
+          }
+        }
+      },
+      "images": {
+        "sm": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-sm-r_2_0_15_1-v1:IMS-R_11_0_28_0",
+        "lrf": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-lrf-r_11_0_28_0-v1:IMS-R_11_0_28_0",
+        "sipre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-resip-r_2_0_66_0d-v1:IMS-R_11_0_28_0",
+        "gtre": "rhel-ubi8-minimal-mone-rhel_8_6_vnf-regt-r_2_0_71_0c-v1:IMS-R_11_0_28_0",
+        "vlbfe": "rhel-ubi8-minimal-mone-rhel_8_6_rm-vlbfe-v-r_1_0_53_1-v3:IMS-R_11_0_28_0"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/lrf",
+        "types": {
+          "vso": true,
+          "external_secrets": true,
+          "k8s_secrets": true
+        },
+        "entries": [
+          "registry-credentials",
+          "ssh-keys"
+        ]
+      }
+    },
+    "crdl": {
+      "display_name": "Converged Real-time Database Layer",
+      "namespace": "ims-crdl",
+      "description": "Multi-instance shared DB: crdladmin (standalone) + crdldb (deployed per consuming NF)",
+      "deployment_config": {
+        "manual_approval": true,
+        "approval_message": "CRDL instances deployed. Verify DB cluster health before proceeding to dependent NFs.",
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "15m",
+          "custom_script": null
+        },
+        "auto_rollback": false,
+        "sync_timeout": "20m"
+      },
+      "depends_on": [
+        "cms"
+      ],
+      "charts": {
+        "crdladmin": {
+          "chart_name": "vmo2-ims-crdladmin",
+          "chart_version": "6.0.0",
+          "deploy_order": 12,
+          "sync_wave": "0",
+          "type": "standalone"
+        },
+        "crdldb": {
+          "chart_name": "vmo2-ims-crdldb",
+          "chart_version": "6.2.0",
+          "deploy_order": 13,
+          "sync_wave": "0",
+          "type": "multi_instance",
+          "depends_on": [
+            "crdladmin"
+          ],
+          "instances": {
+            "mtas": {
+              "suffix": "-mtas"
+            },
+            "ftas": {
+              "suffix": "-ftas"
+            },
+            "muag": {
+              "suffix": "-muag"
+            },
+            "fuag": {
+              "suffix": "-fuag"
+            },
+            "imc": {
+              "suffix": "-imc"
+            },
+            "li": {
+              "suffix": "-li"
+            },
+            "cdb": {
+              "suffix": "-cdb"
+            },
+            "netconfdb": {
+              "suffix": "-netconfdb"
+            }
+          }
+        }
+      },
+      "images": {
+        "_note": "Awaiting CRDL chart documentation for image details"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/crdl",
+        "types": {
+          "vso": true,
+          "external_secrets": false,
+          "k8s_secrets": false
+        },
+        "entries": [
+          "registry-credentials",
+          "db-credentials",
+          "certificates"
+        ]
+      }
+    },
+    "cbf": {
+      "display_name": "Centralized Billing Function",
+      "namespace": "ims-cbf",
+      "description": "Umbrella chart: cbf, sm",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "10m",
+          "custom_script": null
+        },
+        "auto_rollback": true,
+        "sync_timeout": "15m"
+      },
+      "depends_on": [
+        "cms"
+      ],
+      "charts": {
+        "cbf": {
+          "chart_name": "vmo2-ims-cbf",
+          "chart_version": "r_4_0_3_0",
+          "deploy_order": 14,
+          "sync_wave": "0",
+          "type": "umbrella",
+          "sub_charts": {
+            "cbf": {
+              "condition": "cbf.enabled",
+              "default": true
+            },
+            "sm": {
+              "condition": "sm.enabled",
+              "default": true
+            }
+          }
+        }
+      },
+      "images": {
+        "sm": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-sm-r_2_0_15_2a-v1:r_2_0_15_2a-v1",
+        "cbf": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-cbf-r_4_0_3_0-v1:r_4_0_3_0-v1"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/cbf",
+        "types": {
+          "vso": true,
+          "external_secrets": true,
+          "k8s_secrets": true
+        },
+        "entries": [
+          "registry-credentials",
+          "ssh-keys"
+        ]
+      }
+    },
+    "lixp": {
+      "display_name": "Lawful Intercept Proxy",
+      "namespace": "ims-lixp",
+      "description": "Umbrella chart: lixp, vlbfe, sm",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "10m",
+          "custom_script": null
+        },
+        "auto_rollback": true,
+        "sync_timeout": "15m"
+      },
+      "depends_on": [
+        "cms"
+      ],
+      "charts": {
+        "lixp": {
+          "chart_name": "vmo2-ims-lixp",
+          "chart_version": "r-1-0-18-0a",
+          "deploy_order": 15,
+          "sync_wave": "0",
+          "type": "umbrella",
+          "sub_charts": {
+            "lixp": {
+              "condition": "lixp.enabled",
+              "default": true
+            },
+            "vlbfe": {
+              "condition": "vlbfe.enabled",
+              "default": true
+            },
+            "sm": {
+              "condition": "sm.enabled",
+              "default": true
+            }
+          }
+        }
+      },
+      "images": {
+        "sm": "rhel-ubi8-minimal-mone-rhel_8_6_x86_64-sm-r_2_0_15_1b-v2:LIXP-R_1_0_18_0A",
+        "lixp": "rhel-ubi8-minimal-mone-rhel_8_6_vnf_lixp-lixp-r_1_0_18_0a-v1:LIXP-R_1_0_18_0A",
+        "vlbfe": "rhel-ubi8-minimal-mone-rhel_8_6_rm-vlbfe-v-r_1_0_56_0-v5:LIXP-R_1_0_18_0A"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/lixp",
+        "types": {
+          "vso": true,
+          "external_secrets": true,
+          "k8s_secrets": true
+        },
+        "entries": [
+          "registry-credentials",
+          "ssh-keys"
+        ]
+      }
+    },
+    "mrf": {
+      "display_name": "Media Resource Function",
+      "namespace": "ims-mrf",
+      "description": "Two charts: dmrf_preinstall (PVCs, NADs, secrets) then dmrf (application)",
+      "deployment_config": {
+        "manual_approval": false,
+        "health_check": {
+          "type": "pod_readiness",
+          "timeout": "10m",
+          "custom_script": null
+        },
+        "auto_rollback": true,
+        "sync_timeout": "15m"
+      },
+      "depends_on": [
+        "cms"
+      ],
+      "charts": {
+        "dmrf_preinstall": {
+          "chart_name": "vmo2-ims-mrf-preinstall",
+          "chart_version": "2000.579.0",
+          "deploy_order": 16,
+          "sync_wave": "1",
+          "type": "standalone"
+        },
+        "dmrf": {
+          "chart_name": "vmo2-ims-mrf",
+          "chart_version": "2000.579.0",
+          "deploy_order": 17,
+          "sync_wave": "1",
+          "type": "standalone",
+          "depends_on": [
+            "dmrf_preinstall"
+          ]
+        }
+      },
+      "images": {
+        "mrfctrl": "mrfctrl:20.0.0.0-72",
+        "mrfp": "mrfp:20.0.0.0-72",
+        "oamp": "oamp:20.0.0.0-72",
+        "annlab": "annlab:20.0.0.0-72",
+        "annlabclient": "annlabclient:20.0.0.0-72"
+      },
+      "secrets": {
+        "vault_base_path": "secret/data/ims/prod/mrf",
+        "types": {
+          "vso": true,
+          "external_secrets": true,
+          "k8s_secrets": true
+        },
+        "entries": [
+          "registry-credentials"
+        ]
+      }
+    }
+  }
+}

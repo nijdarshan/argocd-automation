@@ -1,4 +1,4 @@
-# 7a. Deployment Operations Reference
+# 6a. Deployment Operations Reference
 
 > **Audience:** Developers implementing the production deployment orchestrator.
 > **Scope:** Every operation the orchestrator performs, with exact API calls and expected responses. Production environment only — OCP clusters, GitLab, Nexus, ArgoCD.
@@ -20,7 +20,7 @@ HELIX_ID      = Deployment tracking ticket (e.g., HELIX-12345)
 
 ## 1. Authentication
 
-ArgoCD authenticates via session cookies. The token must be refreshed before each deployment sequence — tokens expire silently after approximately 60 minutes.
+ArgoCD authenticates via session cookies. The token must be refreshed before each deployment sequence — tokens expire after ~24 hours (ArgoCD default server.sessionMaxAge). With the exit-and-resume execution model (see Section 6b), a fresh token is obtained on every batch run — token expiry is not a concern.
 
 **Request:**
 ```bash
@@ -41,7 +41,9 @@ curl -sk "$ARGOCD_URL/api/v1/session" \
 
 **Credential management:** Service account credentials stored in Vault. The orchestrator fetches them at runtime — never in config files or environment variables.
 
-**Important:** Get a fresh token at the start of each deployment operation. Do not cache tokens across deployments — a deployment that takes longer than 60 minutes will fail silently with 401 responses.
+**Important:** Get a fresh token at the start of each deployment operation. Do not cache tokens across deployments — with exit-and-resume, each batch run gets a fresh token automatically.
+
+> **TLS note:** Examples in this document use `-k` (skip TLS verification) for test/lab environments. In production, replace `-k` with `--cacert /path/to/ca-bundle.crt`. Never skip TLS verification in production.
 
 ---
 
@@ -379,6 +381,42 @@ git push origin main
 - Works with branch protection rules
 - ArgoCD sees the revert as a normal commit and syncs
 
+### 6.2a Multi-Step Rollback (Target a Specific Deployment)
+
+When the rollback target is more than one deployment ago (e.g., 3 deployments have modified MTAS since the known-good state), chained `git revert` commands can cause merge conflicts if the commits touched the same lines. Use content-based restoration instead:
+
+```bash
+# Get the target commit SHA from the known-good deployment record in DB
+target_sha={commit_sha_from_target_deployment}
+
+# Extract the known-good values directly from Git history
+git show ${target_sha}:environments/{env}/values/{component}/{chart}/values.yaml \
+  > environments/{env}/values/{component}/{chart}/values.yaml
+
+# If the chart version also changed, restore the Application YAML
+git show ${target_sha}:environments/{env}/applications/{app_name}.yaml \
+  > environments/{env}/applications/{app_name}.yaml
+
+# Stage and commit
+git add environments/{env}/values/{component}/
+git add environments/{env}/applications/{app_name}.yaml
+git commit -m "{component}: Rollback to {target_helix} - {HELIX_ID}"
+git push origin main
+```
+
+**Why content-based restoration instead of chained reverts:**
+- No merge conflicts — the file is overwritten to the exact known-good content
+- Works regardless of how many deployments happened since the target
+- Preserves audit trail (new commit, not history rewrite)
+- The commit message references both the current HELIX and the target HELIX for traceability
+
+**When to use which approach:**
+| Scenario | Approach |
+|----------|----------|
+| Revert the most recent deployment | `git revert` (Section 6.2) — simple, one command |
+| Revert to a specific older deployment | Content-based restoration (this section) |
+| Full stack rollback to known-good | Content-based per component in reverse batch order (Section 7) |
+
 ### 6.3 Sync with Rollback Strategy
 
 Rollback uses `refresh=hard` and `force=true` — justified because this is emergency recovery and we need ArgoCD to immediately apply the reverted state:
@@ -637,16 +675,25 @@ A new component is added to an existing NF deployment.
 
 1. **Generate new Application YAML** from the payload (same template as Section 2.1)
 2. **Generate new values.yaml**
-3. **Commit:**
+3. **Update namespace manifest** — check if the new component's namespace already exists in `environments/{env}/applications/namespace.yaml`. If not, append it:
+   ```yaml
+   ---
+   apiVersion: v1
+   kind: Namespace
+   metadata:
+     name: {new_namespace}
+   ```
+   The app-of-apps applies namespace.yaml at the lowest sync-wave, ensuring the namespace exists before ArgoCD syncs the new component's Application.
+4. **Commit:**
    ```
    git add environments/{env}/applications/{new_app}.yaml
    git add environments/{env}/values/{component}/values.yaml
    git commit -m "Add {component} - {HELIX_ID}"
    git push origin main
    ```
-4. **App-of-apps auto-discovers** — because the root app has `syncPolicy.automated.prune: true`, it detects the new Application YAML in the `applications/` directory and creates the ArgoCD Application
-5. **Sync the new app** (same as Section 2.5)
-6. **Wait healthy + record state**
+5. **App-of-apps auto-discovers** — because the root app has `syncPolicy.automated.prune: true`, it detects the new Application YAML in the `applications/` directory and creates the ArgoCD Application
+6. **Sync the new app** (same as Section 2.5)
+7. **Wait healthy + record state**
 
 ---
 
@@ -854,7 +901,9 @@ Captured before each commit:
 
 ```
 Deployment: pending → in_progress → success / failed / rolled_back / cancelled
-Component:  pending → in_progress → healthy / unhealthy / rolled_back / skipped
+Component:  pending → in_progress → synced → healthy
+                                         → unhealthy → rolled_back
+                              → skipped
 ```
 
 ---
@@ -926,20 +975,7 @@ Add a TTL check — if a deployment has been `in_progress` for more than 4 hours
 
 ## 19. ConfigMap Rollout Trigger
 
-When a values change updates a ConfigMap but NOT the pod template spec (e.g., changing a feature flag that's mounted as a ConfigMap), Kubernetes does NOT restart the pods — the old ConfigMap content stays in the running pods.
-
-### Solution: Checksum Annotation
-
-Helm charts should include a checksum of config-dependent values in the pod template annotation:
-
-```yaml
-template:
-  metadata:
-    annotations:
-      checksum/config: {{ .Values | toJson | sha256sum }}
-```
-
-When any value changes, the checksum changes, Kubernetes sees a new pod spec, and triggers a rolling restart. This is a **Helm chart design requirement** — the orchestrator doesn't handle it, but should document it for chart authors.
+Helm charts should include a checksum annotation — see [Section 6b Section 8.2](06b-developer-requirements.md) for the required pattern.
 
 ---
 
@@ -984,4 +1020,4 @@ In multi-source Applications, the `$values` reference in `helm.valueFiles` point
 
 ---
 
-*Previous: [Section 7 — Deployment & Rollback Design](07-deployment-rollback.md) | Next: [Section 7b — Developer Requirements](07b-developer-requirements.md)*
+*Previous: [Section 6 — Deployment & Rollback Design](06-deployment-rollback.md) | Next: [Section 6b — Developer Requirements](06b-developer-requirements.md)*

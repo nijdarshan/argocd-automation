@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Deployment API Response",
-  "description": "Shape returned by GET /api/v1/deployments/{deployment_id}. Contains the resolved app-config payload (no placeholders) and runtime deployment state.",
+  "description": "Shape returned by GET /api/v1/deployments/{deployment_id}. Contains the RESOLVED payload (all placeholders substituted, user_editable/non_editable merged into flat values). This does NOT validate the raw app-config template — see App-Config-Data-Model.md for the template schema.",
   "type": "object",
   "required": ["deployment_id", "helix_id", "action", "environment", "nf", "status", "created_at", "payload", "runtime"],
   "additionalProperties": false,
@@ -23,8 +23,8 @@
 
     "deployment_status": {
       "type": "string",
-      "enum": ["pending", "in_progress", "success", "failed", "rolled_back", "cancelled"],
-      "description": "Overall deployment status"
+      "enum": ["pending", "in_progress", "pending_approval", "success", "failed", "rolled_back", "cancelled"],
+      "description": "Overall deployment status. pending_approval indicates the orchestrator is paused at an approval gate awaiting operator action via PUT /approve"
     },
 
     "resolved_payload": {
@@ -47,16 +47,17 @@
         },
         "defaults": {
           "type": "object",
+          "required": ["gitops_repo", "helm_registry", "argocd_project"],
           "properties": {
-            "helm_registry":    { "type": "string" },
+            "helm_registry":    { "type": "string", "description": "Nexus Helm repository URL" },
             "image_registry":   { "type": "string" },
             "pull_secret":      { "type": "string" },
             "storage_class":    { "type": "string" },
             "service_account_prefix": { "type": "string" },
             "node_selector":    { "type": "object" },
-            "gitops_repo":      { "type": "string" },
-            "gitops_branch":    { "type": "string" },
-            "argocd_project":   { "type": "string" },
+            "gitops_repo":      { "type": "string", "description": "GitLab repository URL for the GitOps repo" },
+            "gitops_branch":    { "type": "string", "description": "Branch to commit to (default: main)" },
+            "argocd_project":   { "type": "string", "description": "ArgoCD project name" },
             "argocd_app_of_apps": { "type": "string" }
           }
         },
@@ -64,9 +65,10 @@
           "type": "array",
           "items": {
             "type": "object",
+            "required": ["component", "batch"],
             "properties": {
-              "component": { "type": "string" },
-              "batch":     { "type": "integer" }
+              "component": { "type": "string", "description": "Component key matching a key in components object" },
+              "batch":     { "type": "integer", "description": "Batch number (1-based). Lower batches deploy first. Same batch = parallel" }
             }
           }
         },
@@ -105,37 +107,43 @@
 
     "resolved_chart": {
       "type": "object",
-      "description": "Chart with resolved values (no user_editable/non_editable split — merged into values).",
-      "required": ["chart_name", "chart_version", "deploy_order", "sync_wave", "type", "values"],
+      "description": "Chart with resolved values. For type=helm, values contains the merged Helm values. For type=multi_instance, instances contains per-instance values instead.",
+      "required": ["chart_name", "chart_version", "deploy_order", "sync_wave", "type", "namespace", "values_path"],
       "properties": {
-        "chart_name":    { "type": "string" },
-        "chart_version": { "type": "string" },
-        "deploy_order":  { "type": "integer" },
-        "sync_wave":     { "type": "string" },
-        "type":          { "type": "string", "enum": ["helm", "multi_instance"], "description": "helm=standard single chart, multi_instance=same chart deployed N times" },
+        "chart_name":    { "type": "string", "description": "Helm chart name in Nexus" },
+        "chart_version": { "type": "string", "description": "Chart version — becomes targetRevision in ArgoCD Application" },
+        "deploy_order":  { "type": "integer", "description": "Global ordering across all charts (unique)" },
+        "sync_wave":     { "type": "string", "description": "ArgoCD sync-wave annotation value. String because K8s annotations are strings. Numeric value controls ordering (lower = earlier)" },
+        "type":          { "type": "string", "enum": ["helm", "multi_instance"], "description": "helm=standard single chart with values. multi_instance=same chart deployed N times with per-instance values in instances object" },
         "chart_pattern": { "type": "string", "enum": ["umbrella", "standalone", "multi_instance"], "description": "Packaging pattern from vendor: umbrella (sub-charts), standalone, multi_instance" },
-        "namespace":     { "type": "string", "description": "Target K8s namespace for this chart" },
+        "namespace":     { "type": "string", "description": "Authoritative target K8s namespace — used in ArgoCD Application destination.namespace" },
         "values_path":   { "type": "string", "description": "Path in GitOps repo: environments/{env}/values/{values_path}/values.yaml" },
         "display_name":  { "type": "string" },
-        "depends_on":    { "type": "array", "items": { "type": "string" }, "description": "Intra-component chart ordering" },
-        "values":        { "type": "object", "description": "Merged and resolved Helm values (JSON mirroring values.yaml)" },
+        "depends_on":    { "type": "array", "items": { "type": "string" }, "description": "Intra-component chart ordering (e.g., cmsplatform before cmsnfv)" },
+        "values":        { "type": "object", "description": "Merged and resolved Helm values for type=helm. Not present for type=multi_instance (use instances instead)" },
         "instances": {
           "type": "object",
-          "description": "For multi_instance only. Each instance has its own resolved values.",
+          "description": "For type=multi_instance only. Each key is an instance name. Each instance becomes a separate ArgoCD Application.",
           "additionalProperties": {
             "type": "object",
+            "required": ["namespace", "values_path", "values"],
             "properties": {
-              "suffix": { "type": "string" },
-              "values": { "type": "object" }
+              "suffix":      { "type": "string", "description": "Instance suffix for naming (e.g., 'mtas' → app name becomes '{chart}-mtas')" },
+              "namespace":   { "type": "string", "description": "Target K8s namespace for this instance" },
+              "values_path": { "type": "string", "description": "GitOps path for this instance's values.yaml" },
+              "values":      { "type": "object", "description": "Fully resolved values for this instance" }
             }
           }
         }
-      }
+      },
+      "if": { "properties": { "type": { "const": "helm" } } },
+      "then": { "required": ["values"] },
+      "else": { "required": ["instances"] }
     },
 
     "runtime": {
       "type": "object",
-      "description": "Deployment progress. Written by pipeline via PUT callbacks, read by Hub/UI.",
+      "description": "Deployment progress. Updated by the orchestrator at each stage, read by frontend via GET /api/v1/deployments/{id}.",
       "required": ["deployed", "component_results"],
       "additionalProperties": false,
       "properties": {
@@ -147,10 +155,6 @@
         "current": {
           "type": ["string", "null"],
           "description": "Component key currently being deployed"
-        },
-        "current_pipeline_id": {
-          "type": ["integer", "null"],
-          "description": "GitLab CI pipeline ID for the current component"
         },
         "pending_approval": {
           "type": "boolean",
@@ -172,7 +176,7 @@
       "properties": {
         "status": { "$ref": "#/$defs/chart_status", "description": "Derived from chart statuses: healthy only when all charts healthy" },
         "commit_sha": { "type": ["string", "null"], "description": "Git commit SHA for this component's GitOps commit" },
-        "pipeline_id": { "type": ["integer", "null"], "description": "GitLab CI pipeline ID" },
+        "version": { "type": ["string", "null"], "description": "Deployed version of the component (from payload values)" },
         "deployed_at": { "type": ["string", "null"], "format": "date-time" },
         "charts": {
           "type": "object",
@@ -198,9 +202,17 @@
             "version_match":            { "type": "boolean" }
           }
         },
-        "error": {
-          "type": ["string", "null"],
-          "description": "Error message if status is unhealthy"
+        "errors": {
+          "type": "array",
+          "description": "Error details from ArgoCD resource-tree if status is unhealthy",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind":    { "type": "string", "description": "K8s resource kind (e.g., Pod, Service, PVC)" },
+              "name":    { "type": "string", "description": "Resource name" },
+              "message": { "type": "string", "description": "Error message from ArgoCD" }
+            }
+          }
         }
       }
     },
