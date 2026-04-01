@@ -199,7 +199,37 @@ Current decision: App-of-Apps (not ApplicationSet) because we have 7-14 componen
 
 ---
 
-## 9.5 Known Technical Debt
+## 9.5 AI Integration
+
+AI augments the platform where manual interpretation is the bottleneck — reading vendor artifacts, generating templates, diagnosing failures. Rule-based logic handles everything deterministic (placeholder resolution, git operations, ArgoCD API, schema validation, batch sequencing).
+
+### Phase 1 — Onboarding Acceleration
+
+| Capability | What AI Does | Current State |
+|-----------|-------------|--------------|
+| **App-config template generation** | AI reads a new NF's Helm charts + CIQ blueprint + the IMS app-config as a reference → generates the app-config template for the new NF (deployment_order, deployment_config, chart structure, values with placeholders) | Fully manual. Engineer reads every chart, maps values, builds the template by hand. Most time-consuming step in onboarding a new NF |
+| **Helm chart analysis on vendor intake** | AI reads vendor's `values.yaml`, `Chart.yaml`, and templates → produces: configurable values inventory, container images pulled, namespaces/resources created, network interfaces (Multus annotations), mapping to app-config template structure | Fully manual. Engineer reverse-engineers each chart to understand what it deploys and what values drive it |
+
+These two capabilities eliminate the biggest manual bottleneck: understanding vendor Helm charts and translating them into the Hub's data model. For IMS (17 charts), this took weeks. With AI, onboarding a new NF (e.g., PCRF, CCS) should take days.
+
+### Phase 2 — Operations
+
+| Capability | What AI Does | Current State |
+|-----------|-------------|--------------|
+| **CIQ blueprint generation from vendor spreadsheets** | AI reads vendor Excel/CSV (sizing, network requirements, IP counts) → produces `ciq_blueprint.json` structure (networks, pods, traffic types) | Rule-based transformation exists but requires manual mapping when vendor format changes |
+| **Deployment failure diagnosis** | AI reads ArgoCD resource-tree, pod events, and deployed values → explains the root cause in plain language (e.g., "image tag mismatch: pushed as `mtas-sm-24.3.0` but values reference `mtas-sm:24.3.0`") | Manual — engineer reads ArgoCD UI, kubectl events, cross-references values |
+
+### Where AI Does NOT Apply
+
+- **Placeholder resolution** — rule-based, 24 deterministic support functions
+- **Git operations** — `git commit`, `git revert`, `git push` are mechanical
+- **ArgoCD API calls** — fixed HTTP calls, no interpretation needed
+- **Schema validation** — JSON Schema handles this
+- **Batch ordering and sync** — defined in payload, executed deterministically
+
+---
+
+## 9.6 Known Technical Debt
 
 | Item | Impact | Fix |
 |------|--------|-----|
