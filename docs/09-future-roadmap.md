@@ -215,7 +215,7 @@ Current decision: App-of-Apps (not ApplicationSet) because we have 7-14 componen
 
 Suggested order:
 
-1. **Read Section 1** (Architecture) — understand the full picture (30 min)
+1. **Read Section 1** (Architecture) — understand the full picture
 2. **Read Section 6** (Deployment/Rollback) — this is where implementation starts
 3. **Prototype with Section 6.12** checklist — validate ArgoCD API, Git operations, multi-source apps
 4. **Build the Hub API** (Section 7) — start with POST /deployments and GET /status

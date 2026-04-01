@@ -6,7 +6,7 @@ Vendor-agnostic orchestration platform for Cloud-Native Network Function (CNF) d
 
 ## Quick Start
 
-1. **Understand the system** — Read [Section 1: Architecture](docs/01-architecture-overview.md) (30 min)
+1. **Understand the system** — Read [Section 1: Architecture](docs/01-architecture-overview.md)
 2. **Understand the deployment flow** — Read [Section 6: Deployment & Rollback](docs/06-deployment-rollback.md) then [6b: Developer Requirements](docs/06b-developer-requirements.md)
 3. **See it working** — Set up the [Reference Implementation](reference-implementation/README.md) and run the 17 use cases
 4. **Build the production system** — Use [6a: Commands Reference](docs/06a-deployment-commands-reference.md) for exact API calls and [6b](docs/06b-developer-requirements.md) for the 8-stage pipeline spec with acceptance criteria
