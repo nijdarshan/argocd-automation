@@ -213,7 +213,7 @@ Current decision: App-of-Apps (not ApplicationSet) because we have 7-14 componen
 
 ## 9.6 Team Handover Priorities
 
-If you're picking this up from Darsh, here's the suggested order:
+Suggested order:
 
 1. **Read Section 1** (Architecture) — understand the full picture (30 min)
 2. **Read Section 6** (Deployment/Rollback) — this is where implementation starts

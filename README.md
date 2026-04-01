@@ -119,6 +119,3 @@ If you're picking this up, suggested order:
 5. Build artifact intake from Section 3 — can be developed in parallel
 6. Fill blueprint gaps from Section 4 — SIGTRAN, Core-Media, endpoint data
 
----
-
-*Built by Darsh Nijhawan — Solutions Architect, VMO2 Hub Platform*
