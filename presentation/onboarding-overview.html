@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNF Onboarding — Pre-Deployment</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #161b22;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+  --green: #3fb950;
+  --amber: #d29922;
+  --purple: #bc8cff;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+
+.header { padding:6px 32px 4px; border-bottom:1px solid var(--border); background:var(--surface); flex-shrink:0; }
+.header-title { font-size:1.1rem; font-weight:700; }
+.header-title span { color:var(--accent); }
+.header-sub { font-size:0.75rem; color:var(--muted); margin-top:1px; }
+
+.canvas { flex:1; display:flex; align-items:center; justify-content:center; padding:6px 16px; }
+.canvas svg { width:100%; height:100%; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">CNF Onboarding — <span>Pre-Deployment</span></div>
+  <div class="header-sub">Shared responsibilities across Vendor, VMO2 Hub, and VMO2 Network / Security teams</div>
+</div>
+
+<div class="canvas">
+  <svg id="svg" viewBox="0 0 1100 462"></svg>
+</div>
+
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+const C = { muted:'#8b949e', accent:'#58a6ff', green:'#3fb950', amber:'#d29922', purple:'#bc8cff', text:'#e6edf3' };
+const BG = { surface:'#161b22', pending:'#21262d', progress:'#0d1f3c', healthy:'#0d2818', approval:'#2a1f05' };
+
+function el(tag, attrs, text) {
+  const e = document.createElementNS(NS, tag);
+  if (attrs) Object.entries(attrs).forEach(([k,v]) => e.setAttribute(k, v));
+  if (text) e.textContent = text;
+  return e;
+}
+
+const svg = document.getElementById('svg');
+const defs = el('defs');
+svg.appendChild(defs);
+
+function addRect(g, x, y, w, h, fill, stroke, rx) {
+  g.appendChild(el('rect', { x, y, width:w, height:h, rx:rx||8, ry:rx||8, fill, stroke, 'stroke-width':2 }));
+}
+function addText(g, x, y, text, opts={}) {
+  g.appendChild(el('text', {
+    x, y, 'text-anchor':opts.anchor||'middle', 'dominant-baseline':'central',
+    fill:opts.color||C.text, 'font-size':opts.size||'12', 'font-weight':opts.weight||'600',
+    'font-family':opts.mono ? 'JetBrains Mono,monospace' : 'DM Sans,sans-serif'
+  }, text));
+}
+function addArrow(g, x1, y1, x2, y2, color, id, dashed) {
+  const mkId = 'ah-'+(id||Math.random().toString(36).slice(2));
+  const mk = el('marker', { id:mkId, viewBox:'0 0 10 7', refX:'10', refY:'3.5', markerWidth:'8', markerHeight:'6', orient:'auto-start-reverse' });
+  mk.appendChild(el('path', { d:'M 0 0 L 10 3.5 L 0 7 z', fill:color }));
+  defs.appendChild(mk);
+  const attrs = { x1, y1, x2, y2, stroke:color, 'stroke-width':2, 'marker-end':`url(#${mkId})` };
+  if (dashed) { attrs['stroke-dasharray'] = '6 3'; }
+  g.appendChild(el('line', attrs));
+}
+function addLabel(g, x, y, text, color, size) {
+  g.appendChild(el('text', {
+    x, y, fill:color||C.muted, 'font-size':size||'10', 'text-anchor':'middle',
+    'dominant-baseline':'central', 'font-family':'DM Sans,sans-serif'
+  }, text));
+}
+function badge(g, x, y, text, bgColor, textColor) {
+  const bw = text.length * 6.5 + 16;
+  g.appendChild(el('rect', { x:x-bw/2, y:y-10, width:bw, height:20, rx:10, ry:10, fill:bgColor, stroke:'none' }));
+  g.appendChild(el('text', {
+    x, y, 'text-anchor':'middle', 'dominant-baseline':'central',
+    fill:textColor, 'font-size':'9', 'font-weight':'700', 'font-family':'DM Sans,sans-serif'
+  }, text));
+}
+
+// ============================================================
+//  LAYOUT
+// ============================================================
+const COL_W = 300;
+const COL_GAP = 40;
+const COL_X = [55, 55 + COL_W + COL_GAP, 55 + 2*(COL_W + COL_GAP)];
+
+// ============================================================
+//  COLUMN HEADERS (step 0)
+// ============================================================
+const step0 = el('g', { id:'step0' });
+
+addRect(step0, COL_X[0], 0, COL_W, 40, BG.pending, C.muted);
+addText(step0, COL_X[0]+COL_W/2, 14, 'Vendor', { size:'13', weight:'700' });
+addText(step0, COL_X[0]+COL_W/2, 30, 'Nokia · Mavenir · etc.', { size:'9', color:C.muted, weight:'400' });
+
+addRect(step0, COL_X[1], 0, COL_W, 40, BG.progress, C.accent);
+addText(step0, COL_X[1]+COL_W/2, 14, 'VMO2 Hub', { size:'13', weight:'700' });
+addText(step0, COL_X[1]+COL_W/2, 30, 'Orchestration Platform', { size:'9', color:C.accent, weight:'400' });
+
+addRect(step0, COL_X[2], 0, COL_W, 40, BG.pending, C.muted);
+addText(step0, COL_X[2]+COL_W/2, 14, 'VMO2 Network / Infra / Security', { size:'13', weight:'700' });
+addText(step0, COL_X[2]+COL_W/2, 30, 'Infoblox · GitLab · CI/CD', { size:'9', color:C.muted, weight:'400' });
+
+[COL_X[0]+COL_W, COL_X[1]+COL_W].forEach(x => {
+  step0.appendChild(el('line', { x1:x+COL_GAP/2, y1:42, x2:x+COL_GAP/2, y2:460, stroke:'#1e2430', 'stroke-width':1, 'stroke-dasharray':'4 6' }));
+});
+svg.appendChild(step0);
+
+// ============================================================
+//  PHASE 1  (y: 50 → ~150)
+// ============================================================
+const p1y = 72;
+const boxy1 = p1y + 14;
+const boxH1 = 55;
+
+const step1 = el('g', { id:'step1' });
+addText(step1, 30, p1y, 'PHASE 1', { size:'11', weight:'700', color:C.accent, anchor:'start' });
+addText(step1, 120, p1y, 'Vendor Input & Onboarding', { size:'11', weight:'500', color:C.muted, anchor:'start' });
+step1.appendChild(el('line', { x1:30, y1:p1y+8, x2:1060, y2:p1y+8, stroke:'#1e2430', 'stroke-width':1 }));
+
+// Vendor box
+addRect(step1, COL_X[0]+15, boxy1, COL_W-30, boxH1, BG.pending, C.muted);
+addText(step1, COL_X[0]+COL_W/2, boxy1+18, 'Submit Inputs', { size:'12' });
+addText(step1, COL_X[0]+COL_W/2, boxy1+36, 'CIQ · Helm Charts · Ctr Images', { size:'9', color:C.muted, weight:'400' });
+
+// Arrow Vendor → Hub
+addArrow(step1, COL_X[0]+COL_W-13, boxy1+27, COL_X[1]+17, boxy1+27, C.accent, 'p1a1');
+addLabel(step1, (COL_X[0]+COL_W+COL_X[1])/2, boxy1+16, 'submit', C.accent, '9');
+
+// Hub box
+addRect(step1, COL_X[1]+15, boxy1, COL_W-30, boxH1, BG.progress, C.accent);
+addText(step1, COL_X[1]+COL_W/2, boxy1+14, 'Convert Helm → JSON', { size:'11' });
+addText(step1, COL_X[1]+COL_W/2, boxy1+30, 'Apply placeholders to values', { size:'8', color:C.accent, weight:'400' });
+addText(step1, COL_X[1]+COL_W/2, boxy1+44, 'Calculate compute · IP · storage needs', { size:'8', color:C.accent, weight:'400' });
+
+svg.appendChild(step1);
+
+// Step 2: Infra box (same row) + arrows + badge
+const step2 = el('g', { id:'step2' });
+
+// Arrow Hub → Infra
+addArrow(step2, COL_X[1]+COL_W-13, boxy1+27, COL_X[2]+17, boxy1+27, C.green, 'p1a2');
+addLabel(step2, (COL_X[1]+COL_W+COL_X[2])/2, boxy1+16, 'review request', C.green, '9');
+
+// Infra box (same Y)
+addRect(step2, COL_X[2]+15, boxy1, COL_W-30, boxH1, BG.pending, C.muted);
+addText(step2, COL_X[2]+COL_W/2, boxy1+18, 'Validate & Approve', { size:'12' });
+addText(step2, COL_X[2]+COL_W/2, boxy1+36, 'Compute · Storage · IP sizing', { size:'9', color:C.muted, weight:'400' });
+
+// Feedback arrow below boxes
+const fbY = boxy1 + boxH1 + 8;
+addArrow(step2, COL_X[2]+17, fbY, COL_X[0]+COL_W-13, fbY, C.amber, 'p1fb', true);
+addLabel(step2, COL_X[1]+COL_W/2, fbY+13, 'feedback / approval', C.amber, '9');
+
+badge(step2, COL_X[1]+COL_W/2, fbY+32, 'SHARED RESPONSIBILITY', '#2a1f05', C.amber);
+
+svg.appendChild(step2);
+
+// ============================================================
+//  PHASE 2  (y: 180 → ~310)
+// ============================================================
+const p2y = 196;
+const boxy2 = p2y + 14;
+const boxH2 = 65;
+
+const step3 = el('g', { id:'step3' });
+addText(step3, 30, p2y, 'PHASE 2', { size:'11', weight:'700', color:C.green, anchor:'start' });
+addText(step3, 120, p2y, 'Infrastructure & Network Provisioning', { size:'11', weight:'500', color:C.muted, anchor:'start' });
+step3.appendChild(el('line', { x1:30, y1:p2y+8, x2:1060, y2:p2y+8, stroke:'#1e2430', 'stroke-width':1 }));
+
+// Hub box
+addRect(step3, COL_X[1]+15, boxy2, COL_W-30, boxH2, BG.progress, C.accent);
+addText(step3, COL_X[1]+COL_W/2, boxy2+13, 'Infoblox: Slice Subnets', { size:'11' });
+addText(step3, COL_X[1]+COL_W/2, boxy2+28, 'from supernets allocated by IP team', { size:'8', color:C.accent, weight:'400' });
+addText(step3, COL_X[1]+COL_W/2, boxy2+46, 'Tag Assets + Build Workload Cluster', { size:'11' });
+
+// Forward arrow Hub → Infra
+addArrow(step3, COL_X[1]+COL_W-13, boxy2+32, COL_X[2]+17, boxy2+32, C.green, 'p2a1');
+addLabel(step3, (COL_X[1]+COL_W+COL_X[2])/2, boxy2+22, 'provision + tag', C.green, '9');
+
+svg.appendChild(step3);
+
+// Step 4: Infra validates + return arrow + badge
+const step4 = el('g', { id:'step4' });
+
+// Infra box
+addRect(step4, COL_X[2]+15, boxy2, COL_W-30, boxH2, BG.pending, C.muted);
+addText(step4, COL_X[2]+COL_W/2, boxy2+18, 'Validate Provisioning', { size:'12' });
+addText(step4, COL_X[2]+COL_W/2, boxy2+34, 'Network · Compute · Storage', { size:'9', color:C.muted, weight:'400' });
+addText(step4, COL_X[2]+COL_W/2, boxy2+52, 'Confirm cluster ready', { size:'10', color:C.green, weight:'500' });
+
+// Return arrow at box mid-bottom, connecting both boxes
+const retMid = boxy2 + boxH2 - 10;
+addArrow(step4, COL_X[2]+17, retMid, COL_X[1]+COL_W-13, retMid, C.green, 'p2ret');
+addLabel(step4, (COL_X[1]+COL_W+COL_X[2])/2, retMid+22, 'IPs / VLANs / cluster confirmed', C.green, '9');
+
+badge(step4, (COL_X[1]+COL_W+COL_X[2])/2, retMid+40, 'AUTOMATED + VALIDATED', '#0d2818', C.green);
+
+svg.appendChild(step4);
+
+// ============================================================
+//  PHASE 3  (y: 330 → ~420)
+// ============================================================
+const p3y = 340;
+const boxy3 = p3y + 14;
+const boxH3 = 50;
+
+const step5 = el('g', { id:'step5' });
+addText(step5, 30, p3y, 'PHASE 3', { size:'11', weight:'700', color:C.purple, anchor:'start' });
+addText(step5, 120, p3y, 'Configuration Generation', { size:'11', weight:'500', color:C.muted, anchor:'start' });
+step5.appendChild(el('line', { x1:30, y1:p3y+8, x2:1060, y2:p3y+8, stroke:'#1e2430', 'stroke-width':1 }));
+
+// Hub box: Merge + Generate
+addRect(step5, COL_X[1]+15, boxy3, COL_W-30, boxH3, BG.progress, C.accent);
+addText(step5, COL_X[1]+COL_W/2, boxy3+17, 'Merge Inputs + Network Data', { size:'11' });
+addText(step5, COL_X[1]+COL_W/2, boxy3+34, 'Generate values.yaml + NetworkPolicy', { size:'9', color:C.accent, weight:'400' });
+
+// Support functions (compact)
+addRect(step5, COL_X[1]+15, boxy3+boxH3+6, COL_W-30, 22, '#1a1520', C.purple);
+addText(step5, COL_X[1]+COL_W/2, boxy3+boxH3+17, 'Support functions applied', { size:'9', color:C.purple });
+
+// Arrow Hub → CI/CD
+addArrow(step5, COL_X[1]+COL_W-13, boxy3+25, COL_X[2]+17, boxy3+25, C.purple, 'p3a1');
+addLabel(step5, (COL_X[1]+COL_W+COL_X[2])/2, boxy3+15, 'commit to', C.purple, '8');
+addLabel(step5, (COL_X[1]+COL_W+COL_X[2])/2, boxy3+35, 'GitLab', C.purple, '8');
+
+// CI/CD box
+addRect(step5, COL_X[2]+15, boxy3, COL_W-30, boxH3, BG.pending, C.muted);
+addText(step5, COL_X[2]+COL_W/2, boxy3+17, 'CI/CD Pipeline', { size:'12' });
+addText(step5, COL_X[2]+COL_W/2, boxy3+34, 'Syntax + Security validation', { size:'9', color:C.muted, weight:'400' });
+
+svg.appendChild(step5);
+
+// ============================================================
+//  FOOTER (step 6)
+// ============================================================
+const step6 = el('g', { id:'step6' });
+const fy = 446;
+
+step6.appendChild(el('line', { x1:50, y1:fy, x2:1050, y2:fy, stroke:C.accent, 'stroke-width':2, 'stroke-dasharray':'8 4' }));
+const fmk = el('marker', { id:'ah-footer', viewBox:'0 0 10 7', refX:'10', refY:'3.5', markerWidth:'10', markerHeight:'7', orient:'auto' });
+fmk.appendChild(el('path', { d:'M 0 0 L 10 3.5 L 0 7 z', fill:C.accent }));
+defs.appendChild(fmk);
+step6.appendChild(el('line', { x1:1020, y1:fy, x2:1060, y2:fy, stroke:C.accent, 'stroke-width':2, 'marker-end':'url(#ah-footer)' }));
+addText(step6, 550, fy+14, 'Phase 4: Deploy  →  see Deployment Journey', { size:'11', weight:'600', color:C.accent });
+
+svg.appendChild(step6);
+
+// ============================================================
+//  NAVIGATION
+// ============================================================
+const steps = ['step0','step1','step2','step3','step4','step5','step6'];
+let currentStep = -1;
+
+steps.forEach(id => gsap.set('#'+id, { opacity:0 }));
+
+function advanceStep() {
+  if (currentStep >= steps.length - 1) return;
+  currentStep++;
+  gsap.to('#'+steps[currentStep], { opacity:1, duration:0.5, ease:'power2.out' });
+}
+
+function restart() {
+  steps.forEach(id => gsap.set('#'+id, { opacity:0 }));
+  currentStep = -1;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); advanceStep(); }
+  if (e.key === 'r' || e.key === 'R') { e.preventDefault(); restart(); }
+});
+
+advanceStep();
+</script>
+</body>
+</html>
