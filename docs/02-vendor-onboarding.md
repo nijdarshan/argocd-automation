@@ -232,24 +232,21 @@ After Phase 1 onboarding, vendor interaction drops dramatically:
 
 ---
 
-## 2.8 Open Questions (Mavenir-Specific)
+## 2.8 Vendor Onboarding Checklist
 
-These are outstanding items specific to the IMS/Mavenir onboarding. They need resolution but the framework handles them regardless of the answer:
+When onboarding a new NF, these items must be resolved with the vendor. The framework handles any answer — these are inputs, not blockers:
 
-| # | Question | Impact |
-|---|----------|--------|
-| 1 | **CMS consolidation** — can cmsnfv be an umbrella wrapping cms-infra, cms1, cms2? | Reduces 3 ArgoCD apps to 1 for CMS NFV |
-| 2 | **MRF consolidation** — can dmrf_preInstall and dmrf be one chart? | Reduces 2 apps to 1 for MRF |
-| 3 | **CRDL instance mapping** — how many ArgoCD apps per CRDL instance? Which share crdladmin? | Determines multi-instance config in app-config |
-| 4 | **XA structure** — 3 charts (xa-stack, lam_internal, lam_external) — deployment order? | Determines Pattern B ordering |
-| 5 | **SCEAS Chart.yaml bug** — references `name: agw` but sub-chart is `sce` | Breaks `helm dependency build`; vendor fix needed |
-| 6 | **Deployment order** — where does CRDL fit? Before or after NFs that depend on it? | Affects batch ordering in app-config |
-| 7 | **Parallel deployment** — which NFs can deploy simultaneously? | Determines batch groupings |
-| 8 | **Manual approval gates** — which components need approval before proceeding? | Sets `manual_approval` flags in app-config |
-| 9 | **Health check definitions** — what does "healthy" mean per component? | Drives post-deployment validation |
-| 10 | **Secrets strategy** — which charts use Vault/VSO vs pre-created secrets? | Affects secrets module configuration |
+| # | Item | What the Vendor Provides | Hub Uses It For |
+|---|------|-------------------------|----------------|
+| 1 | **Chart consolidation** — which charts are umbrellas, which are standalone, which are multi-instance? | Chart.yaml analysis, sub-chart conditions | App-config template `type` field, ArgoCD Application count |
+| 2 | **Deployment order** — which components depend on which? What can deploy in parallel? | Dependency matrix | `deployment_order` batches and `depends_on` in app-config |
+| 3 | **Approval gates** — which components need manual verification after deployment? | Operational runbook per component | `manual_approval` flags in `deployment_config` |
+| 4 | **Health check definitions** — what does "healthy" mean per component? Pod readiness sufficient, or application-level checks needed? | Health criteria per component | `health_check` config in `deployment_config` |
+| 5 | **Secrets** — which charts need secrets? Pre-created or Vault/VSO managed? | Secret inventory per component | Secrets setup (Phase 2) or manual pre-creation (Phase 1) |
+| 6 | **Multi-instance mapping** — for Pattern C charts, how many instances and what differentiates them? | Instance list with per-instance overrides | `instances` block in app-config chart definition |
+| 7 | **Chart bugs or non-standard patterns** — any known issues with Chart.yaml, dependencies, or naming? | Bug list, workarounds | Documented as exceptions in the app-config template |
 
-See `docs/Mavenir_Questions_Chart_Structure.md` for full detail on each question.
+For the IMS/Mavenir reference implementation, see `docs/Mavenir_Questions_Chart_Structure.md` for how these items were resolved.
 
 ---
 

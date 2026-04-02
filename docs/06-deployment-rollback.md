@@ -941,17 +941,17 @@ Use this to validate the flow end-to-end before handing to a developer:
 
 ---
 
-## 6.13 Open Questions
+## 6.13 Design Decisions
 
-| # | Question | Impact |
-|---|----------|--------|
-| 1 | Per-component health checks — what does "healthy" mean for each IMS component? Pod readiness only? HTTP endpoints? Custom checks? | Health validation (Stage 7) |
-| 2 | Auto-rollback policy — which components should default to `auto_rollback: true`? | Orchestrator config |
-| 3 | `depends_on` during rollback — if MTAS is rolled back and IMC depends on MTAS, should IMC be flagged? | Rollback logic |
-| 4 | Emergency rollback — should there be a fast path that skips health checks? | Orchestrator + ArgoCD |
-| 5 | ArgoCD sync timeout — what's reasonable per component? CMS (complex) vs ENUMFE (simple) | Per-component `sync_timeout` |
-| 6 | Parallel batch failure — if MTAS fails but FTAS succeeds (same batch), continue or stop? | Batch processing logic |
-| 7 | Hub callback failure — if orchestrator can't write to DB mid-deployment, recovery strategy? | Resilience |
+| # | Decision | Rationale |
+|---|----------|-----------|
+| 1 | **Health checks use ArgoCD resource-tree** — pod readiness + service endpoints. Custom application-level checks (e.g., CMS arbitrator election) are a future enhancement | ArgoCD already aggregates health status. Resource-tree gives pod-level detail. Custom checks add complexity — defer until a vendor requires it |
+| 2 | **Auto-rollback defaults to false** — opt-in per component via `deployment_config.auto_rollback`. Recommended: `true` for stateless components (AGW, ENUMFE), `false` for stateful (CMS, CRDL) | Stateful components need manual verification before rollback (data consistency, replication state). Stateless components are safe to auto-revert |
+| 3 | **Rollback does not cascade dependencies** — only the failed component is reverted. If IMC depends on MTAS and MTAS is rolled back, IMC is flagged in the deployment report but not automatically rolled back | Cascading rollback is dangerous — it could take down healthy components. The operator decides whether dependents need action |
+| 4 | **Rollback IS the emergency fast path** — no approval gates, uses `force=true` + `refresh=hard`, skips health check timeout (immediate sync) | Already designed this way. No separate "emergency mode" needed |
+| 5 | **Sync timeout is configurable per component** — default 180s, overridden via `deployment_config.sync_timeout`. CMS uses 20m, simple components use 3m | Complex components (CMS with HA arbitrator, CRDL with DB cluster) need more time. Simple components should fail fast |
+| 6 | **Partial batch failure halts the deployment** — successful components in the batch remain deployed, failed components are marked, deployment status is `failed`, lock is released. Operator decides next step (fix and retry, or rollback) | Proceeding to the next batch with a failed component risks cascading issues. Conservative default — can be relaxed per-batch if needed |
+| 7 | **DB failure mid-deployment** — orchestrator continues the current batch (ArgoCD sync is independent of DB), logs to local file as fallback, retries DB write on completion. If DB is still down at Stage 8, deployment completes but state must be reconciled manually | Deployment should not fail because of a monitoring system outage. ArgoCD is the source of truth for live state — DB is the audit record |
 
 ---
 

@@ -258,12 +258,15 @@ The Hub needs IP/port/DC data for every external system the CNF communicates wit
 
 **Outstanding request:** Formal endpoint data requested from Network Team (Graham) — see `docs/Network_Team_Endpoint_Request.md`. Covers all 7 protocol categories with preferred JSON output format.
 
-### Open Questions for Network Team
+### Network Design Process
 
-1. Multi-DC comms — all DCs talk to all endpoints, or local + failover?
-2. Are there intermediary firewalls/routers between IMS and external systems?
-3. Diameter — all via DSC (DRA), or some direct to HSS/PCRF/OCS?
-4. SIP interconnect trunk IPs and domains?
+The network team provides supernets (parent ranges) based on the comms matrix and destination endpoints. The service orchestration portal then:
+
+1. **Slices subnets** from parent ranges based on component requirements (pod count, VIP count, interface count)
+2. **Adds configurable buffer** — default 25% extra IPs per subnet for growth and HA
+3. **Generates Infoblox allocation requests** — structured data for automated or manual provisioning
+
+Network-specific details (multi-DC routing, firewall rules, intermediary devices) are resolved during the network design phase and captured in the CIQ blueprint.
 
 ---
 

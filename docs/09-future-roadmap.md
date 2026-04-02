@@ -97,11 +97,9 @@ Once the core flow works end-to-end.
 
 | Item | Detail | Section |
 |------|--------|---------|
-| Per-component health check definitions | Beyond pod readiness — HTTP endpoints, custom checks | 6.13 |
-| Auto-rollback policy defaults | Which components should default to auto_rollback: true? | 6.13 |
+| Per-component custom health checks | Default is pod readiness (decided in 6.13). Future: application-level checks (HTTP endpoints, CMS arbitrator election) when a vendor requires it | 6.13 |
 | Dry-run mode | Validation without Git commits or ArgoCD syncs | 6.11 |
 | Deployment resumability | If Hub crashes, restart from last `deployed[]` state | 6.10 |
-| Parallel batch failure handling | If one component fails in a batch, continue or stop? | 6.13 |
 
 ---
 
