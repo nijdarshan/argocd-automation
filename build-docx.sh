@@ -81,12 +81,16 @@ add_chapter() {
         # Convert [text](file.md) links to plain text
         gsub(/\[([^\]]+)\]\([0-9][^\)]*\.md[^\)]*\)/, "\\1")
         gsub(/\[([^\]]+)\]\(0[^\)]*\.md[^\)]*\)/, "\\1")
-        # Strip backtick-wrapped docs/ and template/ paths
+        # Convert schema/template file references to GitLab links
+        gsub(/`api-response-schema\.json`/, "[api-response-schema.json](https://gitlab.o2virginmedia.com/iced/app-onboarding-v2/app-onboarding-tech-stack/-/blob/main/schemas/api-response-schema.json)")
+        gsub(/`api-response-example\.json`/, "[api-response-example.json](https://gitlab.o2virginmedia.com/iced/app-onboarding-v2/app-onboarding-tech-stack/-/blob/main/schemas/api-response-example.json)")
+        gsub(/`app-config-schema\.json`/, "[app-config-schema.json](https://gitlab.o2virginmedia.com/iced/app-onboarding-v2/app-onboarding-tech-stack/-/blob/main/schemas/app-config-schema.json)")
+        gsub(/`ims-config-example\.json`/, "[ims-config-example.json](https://gitlab.o2virginmedia.com/iced/app-onboarding-v2/app-onboarding-tech-stack/-/blob/main/templates/ims-config-example.json)")
+        gsub(/`ciq_blueprint\.json`/, "[ciq_blueprint.json](https://gitlab.o2virginmedia.com/iced/app-onboarding-v2/app-onboarding-tech-stack/-/blob/main/templates/ciq_blueprint.json)")
+        # Strip stale docs/ and template/ paths
         gsub(/`docs\/[^`]*`/, "")
         gsub(/`template\/[^`]*`/, "")
-        # Strip "See docs/..." references
         gsub(/See `docs\/[^`]*`[^.]*\./, "")
-        # Clean presentation/ paths
         gsub(/`presentation\/[^`]*`/, "the interactive presentation")
         print
       }
