@@ -13,8 +13,8 @@ echo "Building master markdown..."
 # Front matter
 cat > "$MASTER" << 'FRONTMATTER'
 ---
-title: "VMO2 Hub — CNF Deployment Platform"
-subtitle: "Technical Handover Document"
+title: "VMO2 Application Onboarding — CNF Deployment Platform"
+subtitle: "Technical Design Document"
 date: "April 2026"
 document-type: "Technical Reference"
 version: "1.0"
@@ -33,7 +33,7 @@ classification: "Internal"
 | **Not in Scope** | Business process documentation, stakeholder management, project governance |
 | **Status** | Near-final — under active review |
 
-This is a **technical document** for engineers building and operating the VMO2 Hub CNF deployment platform. It covers system architecture, data models, deployment automation, API contracts, and implementation specifications. For the working reference implementation (Helm charts, orchestrator scripts, lab setup), see the [tech stack repository](https://gitlab.o2virginmedia.com/iced/app-onboarding-v2/app-onboarding-tech-stack).
+This is a **technical design document** for engineers building and operating the VMO2 Application Onboarding platform. It covers system architecture, data models, deployment automation, API contracts, and implementation specifications. For the working reference implementation (Helm charts, orchestrator scripts, lab setup), see the [tech stack repository](https://gitlab.o2virginmedia.com/iced/app-onboarding-v2/app-onboarding-tech-stack).
 
 ## How to Read This Document
 
@@ -50,8 +50,7 @@ This is a **technical document** for engineers building and operating the VMO2 H
 
 | Repository | Contents |
 |-----------|----------|
-| **Tech Stack** — [GitLab](https://gitlab.o2virginmedia.com/iced/app-onboarding-v2/app-onboarding-tech-stack) | Reference implementation: Helm charts, orchestrator (deploy.sh, usecase.sh, FastAPI), deployment payloads, lab setup (Kind + ArgoCD + Nexus + Gitea) |
-| **Schemas & Templates** — [GitHub](https://github.com/nijdarshan/argocd-automation) | This document's source, JSON schemas (app-config + API response), IMS config template, CIQ blueprint, support functions guide |
+| **Tech Stack** — [GitLab](https://gitlab.o2virginmedia.com/iced/app-onboarding-v2/app-onboarding-tech-stack) | Reference implementation: Helm charts, orchestrator (deploy.sh, usecase.sh, FastAPI), deployment payloads, lab setup (Kind + ArgoCD + Nexus + Gitea), JSON schemas, IMS config template, CIQ blueprint, support functions guide |
 
 \newpage
 
@@ -72,7 +71,8 @@ add_chapter() {
     echo "\\newpage" >> "$MASTER"
     echo "" >> "$MASTER"
     # Bump all headings by one level (# -> ##, ## -> ###, etc.)
-    sed 's/^######/#######/; s/^#####/######/; s/^####/#####/; s/^###/####/; s/^##/###/; s/^#/##/' "$file" >> "$MASTER"
+    # Single-pass awk to avoid sed cascading substitution bug
+    awk '/^#{1,6} / { sub(/^#/, "##"); print; next } { print }' "$file" >> "$MASTER"
     echo "" >> "$MASTER"
 }
 
@@ -103,15 +103,40 @@ add_chapter "08-standards-alignment.md"
 add_part "5" "Roadmap"
 add_chapter "09-future-roadmap.md"
 
+# Appendix: Support Functions Guide
+echo "" >> "$MASTER"
+echo "\\newpage" >> "$MASTER"
+echo "" >> "$MASTER"
+echo "# Appendix A: Support Functions Reference" >> "$MASTER"
+echo "" >> "$MASTER"
+SUPPORT_FUNCS="$OUT_DIR/templates/support-functions-guide.md"
+if [ -f "$SUPPORT_FUNCS" ]; then
+    awk '/^#{1,6} / { sub(/^#/, "##"); print; next } { print }' "$SUPPORT_FUNCS" >> "$MASTER"
+fi
+
 echo "Converting to docx..."
 
-pandoc "$MASTER" \
-    -f markdown \
-    -t docx \
-    --toc \
-    --toc-depth=3 \
-    --number-sections \
-    -o "$OUT_DIR/VMO2_Hub_Handover.docx"
+DOCX_NAME="VMO2_Application_Onboarding_Technical_Design.docx"
+TEMPLATE="$OUT_DIR/reference.docx"
 
-echo "Done: $OUT_DIR/VMO2_Hub_Handover.docx"
+if [ -f "$TEMPLATE" ]; then
+    echo "Using styled template: $TEMPLATE"
+    pandoc "$MASTER" \
+        -f markdown \
+        -t docx \
+        --reference-doc="$TEMPLATE" \
+        --toc \
+        --toc-depth=3 \
+        -o "$OUT_DIR/$DOCX_NAME"
+else
+    echo "No template found, using pandoc defaults"
+    pandoc "$MASTER" \
+        -f markdown \
+        -t docx \
+        --toc \
+        --toc-depth=3 \
+        -o "$OUT_DIR/$DOCX_NAME"
+fi
+
+echo "Done: $OUT_DIR/$DOCX_NAME"
 rm "$MASTER"

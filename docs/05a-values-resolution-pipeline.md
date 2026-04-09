@@ -182,6 +182,18 @@ Type:         string
 
 **All 24 functions and their data sources are documented in Section 5.8.**
 
+**IP resolution detail:** For IP-related functions (`whereabouts_range_end`, `ipam_range_start`, `ipam_range_end`, `whereabouts_range_cidr`), the resolution pipeline must handle shared networks where multiple components use the same supernet:
+
+1. Group all placeholders by network name across all components
+2. For each network, iterate components in deployment order
+3. Per component: calculate required IPs (pod count from blueprint `pods` section + VIP count if `vip_required: true` + configurable buffer, default 25%)
+4. Allocate the next sequential non-overlapping slice from the supernet
+5. Format output based on IPAM type: `"start-end/mask"` for whereabouts, `"start"` and `"end"` for static (CMS)
+
+This ensures no IP collisions on shared networks. The 25% buffer is configurable via the service orchestration portal.
+
+**Storage resolution detail:** The `storage_size` function resolves volume sizes from the blueprint. Volume names may include `_internal` or `_external` suffixes to select different size profiles based on storage type (cluster-local vs external SAN/NAS).
+
 ### Step 5: Merge user_editable + non_editable
 
 For each chart, deep-merge the two objects into a single `values` object:

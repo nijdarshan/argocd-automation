@@ -268,6 +268,58 @@ The network team provides supernets (parent ranges) based on the comms matrix an
 
 Network-specific details (multi-DC routing, firewall rules, intermediary devices) are resolved during the network design phase and captured in the CIQ blueprint.
 
+### IP Range Allocation from Supernets
+
+When multiple components share a network (e.g., `oam-External` used by CMS, IMC, MTAS, AGW, and others), each component must receive a non-overlapping IP slice from the supernet. The allocation logic depends on the component's IPAM mechanism:
+
+**Two IPAM mechanisms:**
+
+| Mechanism | Components | How IPs Are Assigned | What the Resolution Pipeline Calculates |
+|-----------|-----------|---------------------|----------------------------------------|
+| **Static** (`ipamrangestart`/`ipamrangeend`) | CMS | Pods get fixed IPs. Ranges must not overlap. | Exact start and end IPs: count pods + VIPs, allocate sequential range from supernet |
+| **Whereabouts** (`ipam.range`) | IMC, MTAS, FTAS, AGW, ENUMFE, MUAG, FUAG, SCEAS, LRF, CBF, LIXP | Whereabouts CNI self-assigns IPs from a given range at runtime. | Allocate a range slice per component: pod count + VIP count + 25% buffer. Whereabouts manages assignment within the slice |
+| **Whereabouts CIDR** | FTAS (specific networks) | Same as whereabouts but output as CIDR notation | Allocate a CIDR block instead of start-end range |
+
+**Slicing algorithm:**
+
+1. Network team provides supernet per network segment (e.g., `oam-External: 10.69.96.0/24`)
+2. Resolution pipeline iterates every component that uses this network (from blueprint `traffic_types`)
+3. For each component:
+   - Look up pod count from blueprint `pods` section for each consumer pod type
+   - Add VIP count if `vip_required: true` for this traffic type
+   - Add **25% buffer** (configurable — default growth margin for scaling and HA)
+   - Allocate the next available sequential slice from the supernet
+4. Output format depends on component's IPAM type:
+
+**Static (CMS) output:**
+```
+ipamrangestart: "10.69.96.4"
+ipamrangeend: "10.69.96.10"
+gateway: "10.69.96.1"
+```
+
+**Whereabouts output:**
+```
+range: "10.69.96.20-10.69.96.50/24"
+```
+
+**Whereabouts CIDR output:**
+```
+range: "10.69.96.0/26"
+```
+
+**Example: oam-External supernet allocation across components**
+
+| Component | IPAM Type | Pods | VIPs | Buffer (25%) | Total IPs | Allocated Range |
+|-----------|-----------|------|------|-------------|-----------|----------------|
+| CMS | Static | 4 | 3 | 2 | 9 | 10.69.96.4 – 10.69.96.12 |
+| IMC | Whereabouts | 6 | 0 | 2 | 8 | 10.69.96.20 – 10.69.96.27/24 |
+| MTAS | Whereabouts | 8 | 2 | 3 | 13 | 10.69.96.30 – 10.69.96.42/24 |
+| FTAS | Whereabouts | 6 | 2 | 2 | 10 | 10.69.96.45 – 10.69.96.54/24 |
+| ... | ... | ... | ... | ... | ... | ... |
+
+The 25% buffer is configurable per deployment via the service orchestration portal. The support functions (`whereabouts_range_end`, `ipam_range_start`, `ipam_range_end`) implement this slicing logic — see Appendix A (Support Functions Reference) for details.
+
 ---
 
 ## 4.7 Hub ↔ Infoblox Integration

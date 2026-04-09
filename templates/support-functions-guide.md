@@ -63,6 +63,8 @@ Function names follow: **`<plugin_or_domain>_<output_type>`**
 
 ## 3. Whereabouts IPAM Functions
 
+These functions allocate IP range slices from a shared supernet. When multiple components use the same network (e.g., `oam-External`), each component gets a non-overlapping slice. The resolution pipeline iterates components per network, counts pods + VIPs + 25% buffer, and allocates sequential slices. See Section 4 for the full slicing algorithm.
+
 ### `whereabouts_range_end`
 
 Returns IP range in `"start-end/mask"` format for a network and pod type.
@@ -549,11 +551,16 @@ Returns memory request or limit for a pod type.
 
 ### `storage_size`
 
-Returns storage size for a named volume within a component.
+Returns storage size for a named volume within a component. The volume name may include an `_internal` or `_external` suffix to distinguish storage types:
 
-**Arguments**: `component`, `volume_name`
-**Output**: String e.g. `"31G"`
-**Data source**: CIQ blueprint storage sizing
+- **`_internal`** — cluster-local storage (e.g., local SSDs, Ceph RBD within the cluster)
+- **`_external`** — external storage (e.g., SAN, NAS, external Ceph)
+
+The suffix determines which size profile is used from the blueprint. Different storage types have different capacity allocations for the same logical volume.
+
+**Arguments**: `component`, `volume_name` (e.g., `sm-storage`, `sm-storage_internal`, `sm-storage_external`)
+**Output**: String e.g. `"31G"` (internal) or `"50G"` (external)
+**Data source**: CIQ blueprint storage sizing, keyed by volume name with `_internal`/`_external` suffix
 
 **JSON** (app-config, with placeholder):
 ```json

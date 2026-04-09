@@ -33,16 +33,12 @@ Every interaction in the system involves three parties:
 
 The onboarding lifecycle is split into four sequential phases:
 
-```
-Phase 1                Phase 2                Phase 3              Phase 4
-Vendor Input  ───────► Network Design  ─────► Config Gen  ────────► Deploy & Validate
-& Onboarding           & IP Allocation        & GitOps Commit       & Rollback
-
-Vendor submits         Hub generates CIQ      Hub merges inputs    ArgoCD deploys
-CIQ, Helm charts,     Network team provisions + network data →     per-component,
-container images       VLANs/IPs in Infoblox  values.yaml + netpol health checks,
-via portal             Hub retrieves via API   Commits to GitLab    auto-rollback
-```
+| Phase | Name | What Happens |
+|-------|------|-------------|
+| **1** | Vendor Input & Onboarding | Vendor submits CIQ, Helm charts, container images via portal |
+| **2** | Network Design & IP Allocation | Hub generates CIQ requirements. Network team provisions VLANs/IPs in Infoblox. Hub retrieves allocations via API |
+| **3** | Config Generation & GitOps Commit | Hub merges vendor inputs + network data into values.yaml + network policies. Commits to GitLab |
+| **4** | Deploy & Validate | ArgoCD deploys per-component with health checks and auto-rollback |
 
 Each phase is covered in detail in its own handover section (Sections 2, 4, 5a, 6).
 
@@ -62,50 +58,29 @@ The Hub's automation is implemented as five discrete modules:
 
 ---
 
-## 1.5 Architecture (v2 — Agreed Direction)
+## 1.5 Architecture
 
-The agreed architecture removes the intermediate Pipeline service. The Service Orchestrator commits directly to GitOps and watches ArgoCD for status.
+The Service Orchestrator commits directly to GitOps and watches ArgoCD for status. No intermediate pipeline service.
 
 ```
-┌──────────────────────────────────┐
-│       SERVICE ORCHESTRATOR       │  Stateful, API-driven
-│  (Hub — deployment lifecycle)    │  Owns sequencing, approvals, state
-└──────┬──────────────┬────────────┘
-       │              │
-    commits        watches
-       │              │
-       ▼              ▼
-┌──────────┐    ┌──────────┐
-│  GitOps  │───►│  ArgoCD  │         detects changes, syncs
-│   Repo   │    │          │
-└──────────┘    └────┬─────┘
-                     │
-                   syncs
-                     │
-                     ▼
-               ┌──────────┐
-               │   OCP    │          OpenShift / Kubernetes
-               │ Cluster  │          Target environment
-               └──────────┘
+ORCHESTRATOR ──commits──► GitOps Repo ──► ArgoCD ──syncs──► OCP Cluster
+     │                                      ▲
+     └──────watches health/sync─────────────┘
+     │
+     └──reads/writes──► Hub DB (state)
 
-  Supporting Services:
-  ┌──────────┐  ┌──────────┐  ┌──────────┐
-  │ Hub DB   │  │ Nexus /  │  │  Vault   │
-  │ (state)  │  │ Quay     │  │(secrets) │
-  └──────────┘  └──────────┘  └──────────┘
+Supporting: Nexus/Quay (artifacts), Vault (secrets)
 ```
 
-**Data flows:**
-1. **Orchestrator → GitOps Repo:** Commits per-component values.yaml + ArgoCD Application manifests
-2. **GitOps → ArgoCD:** ArgoCD detects Git changes
-3. **ArgoCD → OCP Cluster:** Syncs workloads (network policies first, then pods)
-4. **Orchestrator → ArgoCD:** Watches sync/health status via ArgoCD API
-5. **Orchestrator ↔ Hub DB:** Reads/writes deployment state (deployed[], current, pending_approval)
-6. **Nexus/Quay → GitOps:** Chart references used in Application manifests
+| Flow | Description |
+|------|------------|
+| Orchestrator → GitOps | Commits per-component values.yaml + ArgoCD Application manifests |
+| GitOps → ArgoCD | ArgoCD detects Git changes |
+| ArgoCD → OCP | Syncs workloads (network policies first, then pods) |
+| Orchestrator → ArgoCD | Watches sync/health status via ArgoCD REST API |
+| Orchestrator ↔ Hub DB | Reads/writes deployment state (deployed[], component_results) |
 
-**Why v2 (no pipeline)?** Fewer services, fewer network hops, simpler debugging. The Orchestrator is already stateful — having it own the Git commit step removes an unnecessary indirection.
-
-> **Visual reference:** Open `docs/presentation/deployment-journey-v2.html` for the interactive architecture diagram. Speaker notes at `docs/presentation/speaker-notes.md`.
+> **Visual reference:** Open `presentation/deployment-journey-v2.html` for the interactive architecture diagram.
 
 ---
 

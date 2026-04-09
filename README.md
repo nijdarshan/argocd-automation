@@ -1,6 +1,8 @@
-# VMO2 Hub — CNF Deployment Platform Handover
+# VMO2 Application Onboarding — CNF Deployment Platform
 
-Vendor-agnostic orchestration platform for Cloud-Native Network Function (CNF) deployment. Vendors submit inputs once; the Hub orchestrates CIQ generation, IP allocation, config generation, GitOps deployment, and rollback.
+Technical Design Document
+
+Vendor-agnostic orchestration platform for Cloud-Native Network Function (CNF) deployment. Vendors submit inputs once; the platform orchestrates CIQ generation, IP allocation, config generation, GitOps deployment, and rollback.
 
 ---
 
