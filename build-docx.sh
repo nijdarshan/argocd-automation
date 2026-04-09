@@ -1,12 +1,12 @@
 #!/bin/bash
-# Build the handover Word document from markdown sources
+# Build the Technical Design Document from markdown sources
 # Usage: ./build-docx.sh
-# Output: VMO2_Hub_Handover.docx
+# Output: VMO2_Application_Onboarding_Technical_Design.docx
 
 set -e
 DOCS_DIR="$(cd "$(dirname "$0")/docs" && pwd)"
 OUT_DIR="$(cd "$(dirname "$0")" && pwd)"
-MASTER="/tmp/vmo2-handover-master.md"
+MASTER="/tmp/vmo2-design-master.md"
 
 echo "Building master markdown..."
 

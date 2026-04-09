@@ -109,7 +109,7 @@ Orchestrator --> Hub DB (state: deployed[], component_results)
 
 ---
 
-## Handover Priorities
+## Getting Started Priorities
 
 If you're picking this up, suggested order:
 

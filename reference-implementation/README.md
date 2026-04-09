@@ -535,7 +535,7 @@ argocd-automation/
 │   └── nf-demo-deploy.json              ← Original payload (directory mode, superseded)
 │
 ├── docs/                                  ← Documentation
-│   └── handover/
+│   └── docs/
 │       ├── 07a-deployment-commands-reference.md  ← Every API call for every operation
 │       └── 07b-developer-requirements.md         ← What to build for production
 │
@@ -620,11 +620,11 @@ This PoC validates the deployment flow. The production system documented in `../
 | Developer Requirements | `../docs/06b-developer-requirements.md` | What to build for production — 8-stage pipeline, acceptance criteria |
 | Deployment Design | `../docs/06-deployment-rollback.md` | Architecture, state machine, design decisions |
 | API Schema | `../schemas/api-response-schema.json` | JSON Schema for the deployment payload |
-| Full Handover | `../README.md` | Complete documentation index (10+ sections) |
+| Full Documentation | `../README.md` | Complete documentation index (10+ sections) |
 | Lab Setup | [nexus-argo-lab](https://github.com/nijdarshan/nexus-argo-lab) | Kind + ArgoCD + Nexus bootstrap |
 
 ---
 
 ## Contributing
 
-This is a proof-of-concept for handover.
+This is a reference implementation for the deployment orchestration design.

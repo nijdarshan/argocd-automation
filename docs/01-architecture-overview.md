@@ -40,7 +40,7 @@ The onboarding lifecycle is split into four sequential phases:
 | **3** | Config Generation & GitOps Commit | Hub merges vendor inputs + network data into values.yaml + network policies. Commits to GitLab |
 | **4** | Deploy & Validate | ArgoCD deploys per-component with health checks and auto-rollback |
 
-Each phase is covered in detail in its own handover section (Sections 2, 4, 5a, 6).
+Each phase is covered in detail in its own section (Sections 2, 4, 5a, 6).
 
 ---
 
@@ -48,7 +48,7 @@ Each phase is covered in detail in its own handover section (Sections 2, 4, 5a, 
 
 The Hub's automation is implemented as five discrete modules:
 
-| Module | Purpose | Depth in Handover |
+| Module | Purpose | Section |
 |--------|---------|-------------------|
 | **Artifact Intake — Helm Charts** | Discover, validate, lint, scan, push vendor charts to Nexus | Section 3 (generic standalone tool) |
 | **Artifact Intake — Container Images** | Discover, validate, scan, re-tag, push vendor images to Quay | Section 3 (generic standalone tool) |
@@ -165,7 +165,7 @@ Three-layer strategy under evaluation:
 See `docs/aptori-vs-gitlab-vs-qualys.md` for comparison and `docs/security-scanning-email-draft.md` for decision framework.
 
 ### Standards Alignment
-The Hub aligns conceptually with ETSI NFV MANO and 3GPP SA5 management standards. It already performs their functions but using Kubernetes-native, GitOps-native patterns rather than traditional MANO architecture. Near-term focus is formalizing internal contracts and state machines, not building ETSI-facing APIs. See Section 8 of this handover.
+The Hub aligns conceptually with ETSI NFV MANO and 3GPP SA5 management standards. It already performs their functions but using Kubernetes-native, GitOps-native patterns rather than traditional MANO architecture. Near-term focus is formalizing internal contracts and state machines, not building ETSI-facing APIs. See Section 8.
 
 ---
 

@@ -1,7 +1,7 @@
 # 9. Future Roadmap & Open Items
 
 > **Audience:** Platform engineers and leadership understanding what's next.
-> **Source:** Open items collected from all handover sections + source documentation.
+> **Source:** Open items collected from all sections + source documentation.
 
 ---
 
@@ -214,7 +214,7 @@ These two capabilities eliminate the biggest manual bottleneck: understanding ve
 
 ---
 
-## 9.7 Team Handover Priorities
+## 9.7 Getting Started
 
 Suggested order:
 

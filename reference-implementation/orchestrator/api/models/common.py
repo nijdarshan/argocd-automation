@@ -14,7 +14,7 @@ from datetime import datetime
 
 
 # ── Status Enums ──────────────────────────────────────────
-# These match the state machine from docs/handover/07-deployment-rollback.md
+# These match the state machine from docs/06-deployment-rollback.md
 
 class DeploymentStatus(str, Enum):
     """Overall deployment lifecycle status."""

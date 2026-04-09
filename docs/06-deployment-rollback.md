@@ -497,7 +497,7 @@ The orchestrator generates the ArgoCD Application YAML with the appropriate sync
 | Network Policies | auto_self_heal | Security-critical, must always match Git |
 | MRF | manual | Media processing, vendor may need pre-configuration |
 
-### Key Points for Handover
+### Key Operational Points
 
 1. **Manual sync is the safe default** — the orchestrator explicitly triggers sync when ready
 2. **Auto-sync reverts emergency hotfixes** — if a component uses auto-sync, any `oc` command the engineer runs manually on the cluster gets undone within 3 minutes. The team must understand this
