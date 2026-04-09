@@ -70,11 +70,26 @@ add_chapter() {
     echo "" >> "$MASTER"
     echo "\\newpage" >> "$MASTER"
     echo "" >> "$MASTER"
-    # Bump headings, strip nav links, convert .md cross-links to plain text for docx
+    # Bump headings, strip nav links, clean file paths for docx
     awk '
       /^\*Previous:/ { next }
+      /^> \*\*Source docs:\*\*/ { next }
+      /^> \*\*Key files:\*\*/ { next }
+      /^> \*\*Visual reference:\*\*/ { next }
       /^#{1,6} / { sub(/^#/, "##"); print; next }
-      { gsub(/\[([^\]]+)\]\([0-9][^\)]*\.md[^\)]*\)/, "\\1"); print }
+      {
+        # Convert [text](file.md) links to plain text
+        gsub(/\[([^\]]+)\]\([0-9][^\)]*\.md[^\)]*\)/, "\\1")
+        gsub(/\[([^\]]+)\]\(0[^\)]*\.md[^\)]*\)/, "\\1")
+        # Strip backtick-wrapped docs/ and template/ paths
+        gsub(/`docs\/[^`]*`/, "")
+        gsub(/`template\/[^`]*`/, "")
+        # Strip "See docs/..." references
+        gsub(/See `docs\/[^`]*`[^.]*\./, "")
+        # Clean presentation/ paths
+        gsub(/`presentation\/[^`]*`/, "the interactive presentation")
+        print
+      }
     ' "$file" >> "$MASTER"
     echo "" >> "$MASTER"
 }
