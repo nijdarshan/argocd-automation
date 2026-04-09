@@ -65,15 +65,14 @@ To onboard a new CNF (e.g., PCRF), create a new app-config template following th
 
 ## Reference Implementation (PoC)
 
-Working proof-of-concept that validates every deployment operation end-to-end.
+Working proof-of-concept that validates every deployment operation end-to-end. Hosted in the [tech stack repository](https://gitlab.o2virginmedia.com/iced/app-onboarding-v2/app-onboarding-tech-stack).
 
 | Component | What |
 |-----------|------|
-| [README](reference-implementation/README.md) | Full setup guide, use case catalogue, PoC vs Production differences |
-| [charts/](reference-implementation/charts/) | 7 Helm charts (config, server with Rollout CRD, simulator, collector, store, dashboard, gateway) |
-| [orchestrator/](reference-implementation/orchestrator/) | deploy.sh (Day 0), usecase.sh (17 UCs), FastAPI API |
-| [payloads/](reference-implementation/payloads/) | nf-demo-helm.json — deployment payload driving all operations |
-| [nexus-argo-lab/](reference-implementation/nexus-argo-lab/) | Kind + ArgoCD + Nexus + Gitea + Argo Rollouts lab setup |
+| charts/ | 7 Helm charts (config, server with Rollout CRD, simulator, collector, store, dashboard, gateway) |
+| orchestrator/ | deploy.sh (Day 0), usecase.sh (17 UCs), FastAPI API |
+| payloads/ | nf-demo-helm.json — deployment payload driving all operations |
+| nexus-argo-lab/ | Kind + ArgoCD + Nexus + Gitea + Argo Rollouts lab setup |
 
 ### 17 Use Cases Proven
 

@@ -15,7 +15,7 @@
 | CIQ blueprint (IMS) | Complete (`ciq_blueprint.json`) |
 | Support functions | 24 functions defined and documented (Section 5) |
 | Values resolution pipeline | Process designed and documented (Section 5a). Implementation required |
-| Deployment/rollback automation | Validated — 8-stage pipeline, 17 use cases, ArgoCD API commands, developer requirements (Sections 6, 6a, 6b). Reference implementation available in [argocd-automation](https://github.com/nijdarshan/argocd-automation) |
+| Deployment/rollback automation | Validated — 8-stage pipeline, 17 use cases, ArgoCD API commands, developer requirements (Sections 6, 6a, 6b). Reference implementation available in [app-onboarding-tech-stack](https://gitlab.o2virginmedia.com/iced/app-onboarding-v2/app-onboarding-tech-stack) |
 | Deployment state DB | Schema designed with 3 tables (deployments, component_results, diffs). Reference implementation in SQLite. Production: MariaDB |
 | Canary/Blue-Green | Infrastructure ready (Argo Rollouts). Orchestrator commands documented. Awaiting vendor charts with Rollout CRD |
 | Artifact intake design | Implementation-ready specs, generic standalone tool (Section 3) |
