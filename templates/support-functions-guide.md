@@ -549,33 +549,36 @@ Returns memory request or limit for a pod type.
 
 ---
 
-### `storage_size`
+### `storage_size_internal` / `storage_size_external`
 
-Returns storage size for a named volume within a component. The volume name may include an `_internal` or `_external` suffix to distinguish storage types:
+Two separate functions for resolving storage sizes based on storage type:
 
-- **`_internal`** — cluster-local storage (e.g., local SSDs, Ceph RBD within the cluster)
-- **`_external`** — external storage (e.g., SAN, NAS, external Ceph)
+- **`storage_size_internal`** — cluster-local storage (e.g., local SSDs, Ceph RBD within the cluster)
+- **`storage_size_external`** — external storage (e.g., SAN, NAS, external Ceph)
 
-The suffix determines which size profile is used from the blueprint. Different storage types have different capacity allocations for the same logical volume.
+The CIQ blueprint contains separate sizing data for internal and external storage. The function name determines which profile is used.
 
-**Arguments**: `component`, `volume_name` (e.g., `sm-storage`, `sm-storage_internal`, `sm-storage_external`)
+**Arguments**: `component`, `volume_name`
 **Output**: String e.g. `"31G"` (internal) or `"50G"` (external)
-**Data source**: CIQ blueprint storage sizing, keyed by volume name with `_internal`/`_external` suffix
+**Data source**: CIQ blueprint storage sizing — internal and external sections
 
-**JSON** (app-config, with placeholder):
+**JSON** (app-config, with placeholders):
 ```json
 {
   "sm": {
     "volumes": {
       "sm-storage": {
-        "resources": { "requests": { "storage": "{{ storage_size | MTAS | sm-storage }}" } }
+        "resources": { "requests": { "storage": "{{ storage_size_internal | MTAS | sm-storage }}" } }
+      },
+      "sm-backup": {
+        "resources": { "requests": { "storage": "{{ storage_size_external | MTAS | sm-backup }}" } }
       }
     }
   }
 }
 ```
 
-**JSON** (resolved): becomes `"31G"` → **YAML** (output): structure identical.
+**JSON** (resolved): `"31G"` for internal, `"50G"` for external → **YAML** (output): structure identical.
 
 ---
 
@@ -677,7 +680,7 @@ All values come from the CIQ blueprint — changing the site or environment reso
 | **SRIOV**      | `sriov_pool`, `pci_env`                                                  |
 | **Cross-comp** | `component_ips`                                                          |
 | **Platform**   | `namespace`, `image_registry`, `pull_secret`, `storage_class`, `image`   |
-| **Sizing**     | `replicas`, `cpu_request`, `cpu_limit`, `memory_request`, `memory_limit`, `storage_size` |
+| **Sizing**     | `replicas`, `cpu_request`, `cpu_limit`, `memory_request`, `memory_limit`, `storage_size_internal`, `storage_size_external` |
 
 ---
 

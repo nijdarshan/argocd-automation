@@ -192,7 +192,7 @@ Type:         string
 
 This ensures no IP collisions on shared networks. The 25% buffer is configurable via the service orchestration portal.
 
-**Storage resolution detail:** The `storage_size` function resolves volume sizes from the blueprint. Volume names may include `_internal` or `_external` suffixes to select different size profiles based on storage type (cluster-local vs external SAN/NAS).
+**Storage resolution detail:** Two separate functions resolve storage sizes from the blueprint: `storage_size_internal` (cluster-local storage — Ceph RBD, local SSDs) and `storage_size_external` (external storage — SAN, NAS). The CIQ blueprint contains separate sizing data for each type. Placeholders in the app-config template must use the correct function name based on what storage backs the volume.
 
 ### Step 5: Merge user_editable + non_editable
 
