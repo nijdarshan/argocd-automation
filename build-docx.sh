@@ -70,9 +70,12 @@ add_chapter() {
     echo "" >> "$MASTER"
     echo "\\newpage" >> "$MASTER"
     echo "" >> "$MASTER"
-    # Bump all headings by one level (# -> ##, ## -> ###, etc.)
-    # Single-pass awk to avoid sed cascading substitution bug
-    awk '/^#{1,6} / { sub(/^#/, "##"); print; next } { print }' "$file" >> "$MASTER"
+    # Bump headings, strip nav links, convert .md cross-links to plain text for docx
+    awk '
+      /^\*Previous:/ { next }
+      /^#{1,6} / { sub(/^#/, "##"); print; next }
+      { gsub(/\[([^\]]+)\]\([0-9][^\)]*\.md[^\)]*\)/, "\\1"); print }
+    ' "$file" >> "$MASTER"
     echo "" >> "$MASTER"
 }
 
