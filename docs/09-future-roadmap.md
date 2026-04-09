@@ -11,7 +11,7 @@
 |------|--------|
 | MRF Portal (sizing) | v1 live |
 | Service Orchestration Portal | Getting started |
-| App-config template (IMS) | Complete (`ims-config-prod.json`) |
+| App-config template (IMS) | Complete (`ims-config-example.json`) |
 | CIQ blueprint (IMS) | Complete (`ciq_blueprint.json`) |
 | Support functions | 24 functions defined and documented (Section 5) |
 | Values resolution pipeline | Process designed and documented (Section 5a). Implementation required |

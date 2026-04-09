@@ -1,7 +1,7 @@
 # 1. Architecture & System Overview
 
 > **Audience:** Platform engineers maintaining and evolving the VMO2 Hub.
-> **Source docs:** Architecture_Overview.md, VMO2_Hub_CNF_Onboarding_Proposal_v0.2.md, VMO2_Hub_Deployment_Orchestration.md, presentation/deployment-journey-v2.html
+> **Source docs:** Architecture_Overview.md, VMO2_Hub_CNF_Onboarding_Proposal_v0.2.md, VMO2_Hub_Deployment_Orchestration.md, presentation/deployment-journey.html
 
 ---
 
@@ -80,7 +80,7 @@ Supporting: Nexus/Quay (artifacts), Vault (secrets)
 | Orchestrator → ArgoCD | Watches sync/health status via ArgoCD REST API |
 | Orchestrator ↔ Hub DB | Reads/writes deployment state (deployed[], component_results) |
 
-> **Visual reference:** Open `presentation/deployment-journey-v2.html` for the interactive architecture diagram.
+> **Visual reference:** Open `presentation/deployment-journey.html` for the interactive architecture diagram.
 
 ---
 
@@ -179,7 +179,7 @@ The Hub aligns conceptually with ETSI NFV MANO and 3GPP SA5 management standards
 | **Values resolution pipeline** | Designed — 24 support functions documented (Section 5), resolution process specified (Section 5a). Implementation required |
 | **Artifact intake** | Designed, planned as generic standalone tool (Section 3) |
 | **CIQ generation** | Designed |
-| **IMS app-config template** | Complete (`ims-config-prod.json`) |
+| **IMS app-config template** | Complete (`ims-config-example.json`) |
 | **CIQ blueprint** | Complete (`ciq_blueprint.json`) |
 | **Support functions** | 24 functions defined and documented |
 | **Canary/Blue-Green** | Infrastructure ready (Argo Rollouts). No vendor currently provides Rollout CRD charts. Orchestrator commands documented for future use |

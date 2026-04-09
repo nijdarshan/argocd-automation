@@ -1,8 +1,8 @@
 # 5. Data Models & Template System
 
 > **Audience:** Platform engineers working on the app-config templates, support functions, and portal resolution logic.
-> **Source docs:** template/App-Config-Data-Model.md, template/Support-Functions-Guide_v1.1.md, template/dev-message-nested-json.md, ims-config-prod.json
-> **Key files:** `ims-config-prod.json` (IMS template), `ciq_blueprint.json` (infrastructure blueprint)
+> **Source docs:** template/App-Config-Data-Model.md, template/Support-Functions-Guide_v1.1.md, template/dev-message-nested-json.md, ims-config-example.json
+> **Key files:** `ims-config-example.json` (IMS template), `ciq_blueprint.json` (infrastructure blueprint)
 
 ---
 
@@ -12,7 +12,7 @@ The template system has two data models that work together:
 
 | Model | File | What It Contains | Who Edits It |
 |-------|------|-----------------|-------------|
-| **App-Config** | `ims-config-prod.json` | Chart metadata, deployment ordering, Helm values with placeholders, orchestration config | Automation team (onboarding) |
+| **App-Config** | `ims-config-example.json` | Chart metadata, deployment ordering, Helm values with placeholders, orchestration config | Automation team (onboarding) |
 | **CIQ Blueprint** | `ciq_blueprint.json` | Network segments, IP counts, pod sizing, VLAN/subnet/gateway data per site | Automation team + network team |
 
 ```

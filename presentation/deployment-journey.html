@@ -124,7 +124,7 @@ const deployScenes = [
   { title:'Architecture Overview', sub:'The system components involved in a CNF deployment' },
   { title:'Deployment Request', sub:'A Helix ticket triggers the deployment process' },
   { title:'App-Config Resolution', sub:'The Hub resolves placeholders and stores the payload' },
-  { title:'CMS Deploy — Pipeline to Cluster', sub:'Sequential charts flow through GitOps → ArgoCD → OCP' },
+  { title:'CMS Deploy — Orchestrator to Cluster', sub:'Sequential charts flow through GitOps → ArgoCD → OCP' },
   { title:'CMS Healthy → Approval Required', sub:'Hub detects manual_approval in app-config and pauses for confirmation' },
   { title:'Manual Approval Gate', sub:'Hub pauses — awaiting human confirmation' },
   { title:'Batch Deployment (MTAS + FTAS)', sub:'Two components deploy in parallel as batch 3' },
@@ -134,7 +134,7 @@ const deployScenes = [
 const rollbackScenes = [
   { title:'Failure Detected', sub:'IMC health check fails — pods not ready' },
   { title:'Rollback Decision', sub:'Hub checks auto_rollback config for the failed component' },
-  { title:'Git Revert', sub:'Pipeline reverts the component commit in the GitOps repo' },
+  { title:'Git Revert', sub:'Orchestrator reverts the component commit in the GitOps repo' },
   { title:'ArgoCD Sync + Validate', sub:'ArgoCD syncs the reverted state and health checks confirm rollback' },
   { title:'Full-Stack Rollback', sub:'Hub triggers rollbacks in reverse deployment order' },
 ];
@@ -145,15 +145,15 @@ function getScenes() { return currentFlow === 'deploy' ? deployScenes : rollback
 
 const deployData = [
   // 0: Architecture
-  { note: '// No deployment active yet\n// System components:\n//   Hub, Pipeline, ArgoCD,\n//   GitOps Repo, DB, OCP Cluster' },
+  { note: '// No deployment active yet\n// System components:\n//   Hub, Orchestrator, ArgoCD,\n//   GitOps Repo, DB, OCP Cluster' },
   // 1: Request
   { deployment_id:'deploy-2026-02-09-001', action:'deploy', status:'pending', runtime:{ deployed:[], current:null, pending_approval:false, component_results:{} } },
   // 2: Resolution
   { deployment_id:'deploy-2026-02-09-001', action:'deploy', status:'pending', _note:'// Placeholders resolved:\n// {{ ip_range | CMS | oam }}\n//   → "10.224.1.0/28"\n// {{ dc_name | namespace | CMS }}\n//   → "ims-cms-slough"\n// {{ replicas | IMC | SM }}\n//   → 3', runtime:{ deployed:[], current:null, pending_approval:false } },
-  // 3: CMS Deploy — Pipeline to Cluster
+  // 3: CMS Deploy — Orchestrator to Cluster
   { deployment_id:'deploy-2026-02-09-001', action:'deploy', status:'in_progress', runtime:{ deployed:[], current:'cms', pending_approval:false, component_results:{ cms:{ status:'in_progress', commit_sha:'a1b2c3d', charts:{ cmsplatform:{ status:'healthy' }, cmsnfv:{ status:'in_progress' } } } } } },
   // 4: CMS Healthy → Approval Required
-  { deployment_id:'deploy-2026-02-09-001', action:'deploy', status:'in_progress', _note:'// Pipeline reports CMS healthy\n// Hub checks app-config:\n//   cms.deployment_config\n//     .manual_approval = true\n// → pending_approval set to true', runtime:{ deployed:['cms'], current:null, pending_approval:true, component_results:{ cms:{ status:'healthy' } } } },
+  { deployment_id:'deploy-2026-02-09-001', action:'deploy', status:'in_progress', _note:'// Orchestrator reports CMS healthy\n// Hub checks app-config:\n//   cms.deployment_config\n//     .manual_approval = true\n// → pending_approval set to true', runtime:{ deployed:['cms'], current:null, pending_approval:true, component_results:{ cms:{ status:'healthy' } } } },
   // 5: Manual Approval
   { deployment_id:'deploy-2026-02-09-001', action:'deploy', status:'in_progress', runtime:{ deployed:['cms'], current:null, pending_approval:true, component_results:{ cms:{ status:'healthy' } } } },
   // 6: Batch Deploy
@@ -292,8 +292,7 @@ function drawArch(svg) {
   const hub = addBox(svg, 335, 10, 230, 55, BG.progress, COLORS.progress, 'Service Orchestrator', 'Stateful · API-driven');
   hub.id = 'archHub';
 
-  // Row 2: Pipeline — GitOps — ArgoCD
-  addBox(svg, 70, 125, 190, 55, BG.pending, COLORS.pending, 'Pipeline', 'Stateless · per-component');
+  // Row 2: GitOps — ArgoCD (no Orchestrator — orchestrator commits directly)
   addBox(svg, 355, 125, 190, 55, BG.pending, COLORS.pending, 'GitOps Repo', 'Source of truth');
   addBox(svg, 640, 125, 190, 55, BG.pending, COLORS.pending, 'ArgoCD', 'Declarative sync');
 
@@ -304,32 +303,28 @@ function drawArch(svg) {
 
   // --- Arrows ---
 
-  // Hub → Pipeline (L-shape down then left)
-  addPath(svg, 'M 385 65 L 385 98 L 165 98 L 165 125', COLORS.progress, 'a1');
-  addLabel(svg, 275, 90, 'triggers', COLORS.muted, '10');
-
-  // Pipeline → GitOps (horizontal)
-  addArrow(svg, 260, 152, 355, 152, COLORS.pending, 'a2');
-  addLabel(svg, 308, 142, 'commits', COLORS.muted, '10');
+  // Orchestrator → GitOps (commits)
+  addPath(svg, 'M 385 65 L 385 98 L 450 98 L 450 125', COLORS.progress, 'a1');
+  addLabel(svg, 415, 90, 'commits', COLORS.progress, '10');
 
   // GitOps → ArgoCD (horizontal)
-  addArrow(svg, 545, 152, 640, 152, COLORS.pending, 'a3');
+  addArrow(svg, 545, 152, 640, 152, COLORS.pending, 'a2');
   addLabel(svg, 593, 142, 'detects', COLORS.muted, '10');
 
   // ArgoCD → OCP Cluster (vertical down)
-  addArrow(svg, 735, 180, 735, 275, COLORS.pending, 'a4');
+  addArrow(svg, 735, 180, 735, 275, COLORS.pending, 'a3');
   addLabel(svg, 770, 227, 'syncs', COLORS.muted, '10');
 
-  // Pipeline → Hub DB (vertical down)
-  addArrow(svg, 165, 180, 165, 275, COLORS.pending, 'a5');
-  addLabel(svg, 122, 227, 'PUT /status', COLORS.muted, '9');
+  // Orchestrator → ArgoCD (watches)
+  addPath(svg, 'M 515 65 L 515 98 L 735 98 L 735 125', COLORS.progress, 'a4');
+  addLabel(svg, 625, 90, 'watches', COLORS.progress, '10');
 
-  // Hub DB → Service Orchestrator (below all boxes: right along y=348, up right edge, left to Hub)
-  addPath(svg, 'M 165 330 L 165 348 L 870 348 L 870 37 L 565 37', COLORS.pending, 'a6');
-  addLabel(svg, 890, 190, 'state', COLORS.muted, '9');
+  // Orchestrator → Hub DB (reads/writes)
+  addPath(svg, 'M 370 65 L 370 98 L 165 98 L 165 275', COLORS.progress, 'a5');
+  addLabel(svg, 268, 90, 'reads / writes', COLORS.muted, '10');
 
   // Nexus → GitOps (vertical up)
-  addArrow(svg, 450, 275, 450, 180, COLORS.pending, 'a7');
+  addArrow(svg, 450, 275, 450, 180, COLORS.pending, 'a6');
   addLabel(svg, 490, 227, 'chart refs', COLORS.muted, '9');
 
   // Animate: Hub first, then rows stagger in
@@ -382,8 +377,8 @@ function drawResolution(svg) {
 function drawCMSDeploy(svg) {
   svg.setAttribute('viewBox','0 0 900 480');
 
-  // Top: Pipeline → GitOps → ArgoCD → OCP flow
-  addBox(svg, 20, 20, 140, 50, BG.progress, COLORS.progress, 'Pipeline', 'Generate files');
+  // Top: Orchestrator → GitOps → ArgoCD → OCP flow
+  addBox(svg, 20, 20, 140, 50, BG.progress, COLORS.progress, 'Orchestrator', 'Generate files');
   addArrow(svg, 160, 45, 220, 45, COLORS.progress, 'cd0');
   addLabel(svg, 190, 33, 'commit', COLORS.progress, '9');
 
@@ -446,10 +441,10 @@ function drawCMSDeploy(svg) {
 function drawHealthCheck(svg) {
   svg.setAttribute('viewBox','0 0 900 380');
 
-  // Phase 1: Top flow — batch completes, Pipeline reports healthy, Hub checks config
+  // Phase 1: Top flow — batch completes, Orchestrator reports healthy, Hub checks config
   addBox(svg, 20, 15, 150, 50, BG.healthy, COLORS.green, 'CMS Batch', 'All charts healthy');
   addArrow(svg, 170, 40, 230, 40, COLORS.green, 'hc1');
-  addBox(svg, 230, 15, 150, 50, BG.progress, COLORS.progress, 'Pipeline', 'PUT /status');
+  addBox(svg, 230, 15, 150, 50, BG.progress, COLORS.progress, 'Orchestrator', 'PUT /status');
   addArrow(svg, 380, 40, 440, 40, COLORS.progress, 'hc2');
   addBox(svg, 440, 15, 150, 50, BG.progress, COLORS.progress, 'Hub API', 'Receives callback');
   addArrow(svg, 590, 40, 650, 40, COLORS.amber, 'hc3');
@@ -576,8 +571,8 @@ function drawBatchDeploy(svg) {
   addArrow(svg, 400, 70, 200, 120, COLORS.progress, 'bd1');
   addArrow(svg, 500, 70, 700, 120, COLORS.progress, 'bd2');
 
-  addBox(svg, 80, 120, 240, 60, BG.pending, COLORS.pending, 'Pipeline — MTAS', 'umbrella chart');
-  addBox(svg, 580, 120, 240, 60, BG.pending, COLORS.pending, 'Pipeline — FTAS', 'umbrella chart');
+  addBox(svg, 80, 120, 240, 60, BG.pending, COLORS.pending, 'Orchestrator — MTAS', 'umbrella chart');
+  addBox(svg, 580, 120, 240, 60, BG.pending, COLORS.pending, 'Orchestrator — FTAS', 'umbrella chart');
 
   // MTAS flow
   addArrow(svg, 200, 180, 200, 220, COLORS.pending, 'bd3');
@@ -724,7 +719,7 @@ function drawRollbackDecision(svg) {
 
 function drawGitRevert(svg) {
   svg.setAttribute('viewBox','0 0 900 400');
-  addBox(svg, 50, 145, 180, 60, BG.progress, COLORS.progress, 'Pipeline', 'Rollback mode');
+  addBox(svg, 50, 145, 180, 60, BG.progress, COLORS.progress, 'Orchestrator', 'Rollback mode');
   addArrow(svg, 230, 175, 310, 175, COLORS.amber, 'gr1');
   addLabel(svg, 270, 163, 'git revert', COLORS.amber, '10');
   const gitBox = svgEl('g');
@@ -758,8 +753,8 @@ function drawArgoRevert(svg) {
   // Divider
   svg.appendChild(svgEl('line', { x1:30, y1:110, x2:870, y2:110, stroke:'#30363d', 'stroke-width':1, 'stroke-dasharray':'4 4' }));
 
-  // Bottom flow: Pipeline validates → Hub API → DB
-  addBox(svg, 30, 140, 160, 50, BG.progress, COLORS.progress, 'Pipeline', 'Health check');
+  // Bottom flow: Orchestrator validates → Hub API → DB
+  addBox(svg, 30, 140, 160, 50, BG.progress, COLORS.progress, 'Orchestrator', 'Health check');
   addArrow(svg, 190, 165, 260, 165, COLORS.green, 'rv1');
   addLabel(svg, 225, 153, 'validates', COLORS.green, '9');
   addBox(svg, 260, 140, 160, 50, BG.progress, COLORS.progress, 'Hub API', 'PUT /status');

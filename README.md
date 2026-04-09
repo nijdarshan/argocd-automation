@@ -43,7 +43,7 @@ Vendor-agnostic orchestration platform for Cloud-Native Network Function (CNF) d
 | [api-response-example.json](schemas/api-response-example.json) | IMS mid-deployment example | CMS (healthy), IMC (in_progress), CRDL (pending) with real resolved values |
 
 ```
-ims-config-prod.json  --validates against-->  app-config-schema.json
+ims-config-example.json  --validates against-->  app-config-schema.json
         |
    (resolution pipeline - Section 5a)
         |
@@ -57,7 +57,7 @@ resolved payload  --validates against-->  api-response-schema.json
 
 | File | What It Is |
 |------|-----------|
-| [ims-config-prod.json](templates/ims-config-prod.json) | Complete IMS app-config — 14 components, 17 charts, all placeholder functions, deployment order, approval gates |
+| [ims-config-example.json](templates/ims-config-example.json) | Complete IMS app-config — 14 components, 17 charts, all placeholder functions, deployment order, approval gates |
 | [ciq_blueprint.json](templates/ciq_blueprint.json) | CIQ infrastructure blueprint — 54 network definitions, pod sizing per component |
 | [support-functions-guide.md](templates/support-functions-guide.md) | 24 placeholder resolver functions across 7 categories |
 

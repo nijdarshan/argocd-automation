@@ -32,7 +32,7 @@ The resolution pipeline pulls data from five sources. Each source contributes di
 
 ### 5a.2.1 App-Config Template
 
-**What it is:** The static blueprint that defines what to deploy for a specific NF. Created during vendor onboarding (Section 2). One template per NF (e.g., `ims-config-prod.json`).
+**What it is:** The static blueprint that defines what to deploy for a specific NF. Created during vendor onboarding (Section 2). One template per NF (e.g., `ims-config-example.json`).
 
 **What it contributes:**
 - Chart metadata: `chart_name`, `chart_version`, `deploy_order`, `sync_wave`, `type`
@@ -119,7 +119,7 @@ The pipeline executes in a specific order. Each step depends on the output of th
 Read the app-config template for the target NF:
 
 ```
-Input:  ims-config-prod.json
+Input:  ims-config-example.json
 Output: Template object with components, charts, helm_values (user_editable + non_editable with placeholders)
 ```
 
