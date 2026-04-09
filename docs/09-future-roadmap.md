@@ -214,19 +214,4 @@ These two capabilities eliminate the biggest manual bottleneck: understanding ve
 
 ---
 
-## 9.7 Getting Started
-
-Suggested order:
-
-1. **Read Section 1** (Architecture) — understand the full picture
-2. **Read Section 6** (Deployment/Rollback) — this is where implementation starts
-3. **Prototype with Section 6.12** checklist — validate ArgoCD API, Git operations, multi-source apps
-4. **Build the Hub API** (Section 7) — start with POST /deployments and GET /status
-5. **Build the orchestration loop** (Section 6.5) — batch processing, approval gates
-6. **Build artifact intake** (Section 3) — generic tool, can be developed in parallel
-7. **Fill blueprint gaps** (Section 4.11) — SIGTRAN, Core-Media, endpoint data
-8. **Standards formalisation** (Section 8) — document as you build, not after
-
----
-
 *Previous: [Section 8 — Standards Alignment](08-standards-alignment.md) | Back to [Index](../README.md)*

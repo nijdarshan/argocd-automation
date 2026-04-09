@@ -107,16 +107,4 @@ Orchestrator --> Hub DB (state: deployed[], component_results)
 - Exit-and-resume execution model (fresh process per batch, state in DB)
 - `force=false` for normal deploys, `force=true` only for rollback
 
----
-
-## Getting Started Priorities
-
-If you're picking this up, suggested order:
-
-1. Read Section 1 (Architecture) — understand the full picture
-2. Read Section 6 (Deployment/Rollback) — this is where implementation starts
-3. Run the reference implementation — validate ArgoCD API, Git operations, multi-source apps
-4. Build the orchestrator from Section 6b — 8-stage pipeline with acceptance criteria
-5. Build artifact intake from Section 3 — can be developed in parallel
-6. Fill blueprint gaps from Section 4 — SIGTRAN, Core-Media, endpoint data
 
